@@ -94,7 +94,7 @@ function App() {
     setCargando(true);
     setModoConfig(false);
 
-    axios.post('http://127.0.0.1:8000/obtener-noticias', { urls: urlsAUsar })
+    axios.post('https://mi-ap-noticias.onrender.com/obtener-noticias', { urls: urlsAUsar })
       .then(response => {
         setNoticias(response.data.noticias)
         setErrores(response.data.fallos) 
@@ -133,7 +133,7 @@ function App() {
     setCargandoIA(true)
     setToastMsg("REDACTANDO BORRADOR CON IA...");
 
-    axios.post('http://127.0.0.1:8000/generar-post', {
+    axios.post('https://mi-ap-noticias.onrender.com/generar-post', {
       titulo: noticia.titulo,
       resumen: noticia.resumen,
       fuente: noticia.fuente
