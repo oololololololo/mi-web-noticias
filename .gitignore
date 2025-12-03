@@ -1,0 +1,15 @@
+# Archivos de sistema y logs
+.DS_Store
+logs/
+*.log
+
+# Python (Backend)
+__pycache__/
+*.py[cod]
+venv/
+.env  
+
+# Node (Frontend)
+node_modules/
+dist/
+.env.local
