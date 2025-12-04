@@ -1,6 +1,6 @@
 import os
 import html
-import requests # Usamos esto para descargar con disfraz
+import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -109,7 +109,8 @@ def obtener_noticias_personalizadas(solicitud: SolicitudNoticias):
                     "titulo": entrada.title,
                     "link": entrada.link,
                     "resumen": resumen_limpio[:350] + "...", 
-                    "fuente": feed.feed.title if 'title' in feed.feed else "Fuente Web"
+                    "fuente": feed.feed.title if 'title' in feed.feed else "Fuente Web",
+                    "url_origen": url # <--- ESTA ES LA CLAVE PARA EL COLOR
                 }
                 todas_las_noticias.append(noticia)
                 
