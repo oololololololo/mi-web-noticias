@@ -243,7 +243,7 @@ function App() {
   const generarPost = (noticia) => {
     setCargandoIA(true)
     // Simular un poco de delay visual si la API responde muy rápido (opcional)
-    axios.post('https://mi-ap-noticias.onrender.com/obtener-noticias', { titulo: noticia.titulo, resumen: noticia.resumen, fuente: noticia.fuente })
+    axios.post('https://mi-ap-noticias.onrender.com/generar-post', { titulo: noticia.titulo, resumen: noticia.resumen, fuente: noticia.fuente })
     .then(res => { setPostContent(res.data.contenido); setMostrarModalPost(true); setCargandoIA(false) })
     .catch(() => setCargandoIA(false))
   }
