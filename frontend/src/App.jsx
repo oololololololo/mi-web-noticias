@@ -410,14 +410,20 @@ function App() {
               <div style={{display:'flex', gap:'10px'}}>
                 <button 
                   className="btn-edit-box" 
+                  // Deshabilitamos el click si ya está cargando
+                  disabled={cargandoNoticias}
+                  style={{ opacity: cargandoNoticias ? 0.7 : 1, cursor: cargandoNoticias ? 'wait' : 'pointer' }}
                   onClick={() => {
-                     // Obtenemos las URLs actuales y forzamos (true)
                      const urlsActuales = fuentes.filter(f => f.box_id === cajaEditando.id).map(f => f.url)
                      cargarNoticiasAPI(urlsActuales, true) 
                   }}
                   title="Buscar noticias nuevas ahora"
                 >
-                  ↻ REFRESCAR
+                  {/* Aquí aplicamos la clase condicional */}
+                  <span className={cargandoNoticias ? 'rotating' : ''} style={{display:'inline-block', marginRight:'5px'}}>
+                    ↻
+                  </span> 
+                  {cargandoNoticias ? 'CARGANDO...' : 'REFRESCAR'}
                 </button>
                 <button className="btn-edit-box" onClick={() => abrirModalEdicion(cajaEditando)}>
                   EDITAR ✎

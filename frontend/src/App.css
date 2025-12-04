@@ -359,3 +359,13 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
   color: #2e7d32;
   border-color: #2e7d32;
 }
+/* --- ANIMACIÓN DE GIRO (SPIN) --- */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.rotating {
+  display: inline-block; /* Necesario para que el transform funcione en texto */
+  animation: spin 1s linear infinite;
+}
