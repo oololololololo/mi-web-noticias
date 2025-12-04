@@ -363,10 +363,6 @@ function App() {
         <div className="sidebar-header">
            <div className="user-welcome">Hola, {username}</div>
         </div>
-        
-        <div className="sidebar-header">
-           <div className="user-welcome">Hola, {username}</div>
-        </div>
 
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'15px', paddingLeft:'5px'}}>
            <span style={{fontSize:'0.75rem', fontWeight:'900', color:'#999', letterSpacing:'1px'}}>MIS COLECCIONES</span>
