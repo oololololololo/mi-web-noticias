@@ -10,7 +10,7 @@ const COLORES_MATE = [
   '#333333', '#2E5E4E', '#8B3A3A', '#3B4E78', '#8B6508', '#5D478B', '#A0522D'
 ]
 
-// --- COMPONENTE SKELETON (NUEVO) ---
+// --- COMPONENTE SKELETON ---
 const SkeletonCard = () => (
   <div className="news-card skeleton-card">
     <div className="skeleton-pulse" style={{width: '80px', height: '20px', marginBottom: '15px'}}></div>
@@ -27,14 +27,21 @@ const SkeletonCard = () => (
 )
 
 // --- MODALES ---
-const ModalCaja = ({ isOpen, onClose, onConfirm, tituloModal, initialName='', initialColor=COLORES_MATE[0] }) => {
-  const [nombre, setNombre] = useState(initialName)
-  const [color, setColor] = useState(initialColor)
+const ModalCaja = ({ isOpen, onClose, onConfirm, tituloModal, initialName='', initialColor='' }) => {
+  // Nota: Si initialColor viene vacío, usamos el primer color de la lista por defecto
+  const defaultColor = COLORES_MATE[0]
+  
+  const [nombre, setNombre] = useState('')
+  const [color, setColor] = useState(defaultColor)
 
+  // ESTE EFECTO ES LA CLAVE: 
+  // Cada vez que se abre el modal (isOpen cambia), reiniciamos los valores
+  // con lo que viene de la caja real (initialName e initialColor)
   useEffect(() => {
     if (isOpen) {
-      setNombre(initialName)
-      setColor(initialColor)
+      setNombre(initialName || '')
+      // Si hay un color inicial guardado, lo usamos. Si no, usamos el negro por defecto.
+      setColor(initialColor || defaultColor)
     }
   }, [isOpen, initialName, initialColor])
 
@@ -50,27 +57,46 @@ const ModalCaja = ({ isOpen, onClose, onConfirm, tituloModal, initialName='', in
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <h3 className="modal-title">{tituloModal}</h3>
+        
+        <label style={{display:'block', fontSize:'0.75rem', fontWeight:'bold', marginBottom:'5px', textAlign:'left'}}>NOMBRE</label>
         <input 
-          className="modal-input" autoFocus type="text" placeholder="Nombre de la caja" 
-          value={nombre} onChange={e => setNombre(e.target.value)}
+          className="modal-input" 
+          autoFocus 
+          type="text" 
+          placeholder="Ej: Tecnología, Comida..." 
+          value={nombre} 
+          onChange={e => setNombre(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
         />
-        <p style={{fontSize:'0.8rem', fontWeight:'bold', marginBottom:'10px', textAlign:'center'}}>COLOR DISTINTIVO</p>
+        
+        <p style={{fontSize:'0.75rem', fontWeight:'bold', marginBottom:'10px', marginTop:'20px', textAlign:'center'}}>COLOR ACTUAL</p>
         <div className="color-palette">
-          {COLORES_MATE.map(c => (
-            <div key={c} className={`color-option ${color === c ? 'selected' : ''}`} style={{backgroundColor: c}} onClick={() => setColor(c)} />
-          ))}
+          {COLORES_MATE.map(c => {
+            // Comparación segura (ignora mayúsculas/minúsculas) para saber cuál está seleccionado
+            const isSelected = color && c.toUpperCase() === color.toUpperCase()
+            
+            return (
+              <div 
+                key={c} 
+                className={`color-option ${isSelected ? 'selected' : ''}`} 
+                style={{backgroundColor: c}} 
+                onClick={() => setColor(c)} 
+              />
+            )
+          })}
         </div>
-        <div style={{display:'flex', justifyContent:'flex-end', gap:'10px', marginTop:'20px'}}>
+
+        <div style={{display:'flex', justifyContent:'flex-end', gap:'10px', marginTop:'30px'}}>
           <button className="btn-card" onClick={onClose} style={{border:'none'}}>CANCELAR</button>
-          <button className="btn-card primary" onClick={handleSubmit}>GUARDAR</button>
+          <button className="btn-card primary" onClick={handleSubmit}>
+            {tituloModal === 'NUEVA CAJA' ? 'CREAR' : 'GUARDAR CAMBIOS'}
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-// --- MODAL IA EDITOR (MEJORADO ESTILO TERMINAL) ---
 const ModalPostEditor = ({ onClose, content, setContent, onCopy }) => (
   <div className="modal-overlay" onClick={onClose}>
     <div className="modal-content terminal" onClick={e => e.stopPropagation()}>
@@ -78,14 +104,12 @@ const ModalPostEditor = ({ onClose, content, setContent, onCopy }) => (
          <h3 className="terminal-title">&gt; IA_GENERATOR.exe</h3>
          <button onClick={onClose} style={{background:'none', border:'none', color:'#666', cursor:'pointer', fontSize:'1.2rem'}}>×</button>
       </div>
-      
       <textarea 
         className="terminal-textarea"
         value={content} 
         onChange={e => setContent(e.target.value)}
         spellCheck="false"
       />
-      
       <div style={{display:'flex', gap:'10px', justifyContent:'flex-end', marginTop:'20px'}}>
         <button className="btn-terminal" onClick={onClose}>CANCELAR</button>
         <button className="btn-terminal primary" onClick={onCopy}>COPIAR_TEXTO</button>
@@ -106,6 +130,9 @@ function App() {
   const [fuentes, setFuentes] = useState([])
   const [cajasVisibles, setCajasVisibles] = useState(new Set())
   const [cajaEditando, setCajaEditando] = useState(null) 
+  
+  // NUEVO: Estado para saber si una fuente funciona (ok) o falla (error)
+  const [estadoFuentes, setEstadoFuentes] = useState({}) 
 
   // Noticias
   const [noticias, setNoticias] = useState([])
@@ -222,9 +249,30 @@ function App() {
 
   const cargarNoticiasAPI = (urls) => {
     setCargandoNoticias(true)
-    // RECUERDA: Cambiar esto a https://mi-ap-noticias.onrender.com cuando subas a producción
+    // RECUERDA: Cambiar a tu URL de producción en Render si vas a subir cambios
     axios.post('https://mi-ap-noticias.onrender.com/obtener-noticias', { urls }) 
       .then(res => {
+        // 1. PROCESAR ESTADOS (Check vs Cruz)
+        const nuevosEstados = {}
+        
+        // Las que fallaron (Backend devuelve lista 'fallos')
+        if (res.data.fallos) {
+          res.data.fallos.forEach(url => {
+            nuevosEstados[url] = 'error'
+          })
+        }
+        
+        // Las que funcionaron (Están en 'noticias')
+        if (res.data.noticias) {
+           res.data.noticias.forEach(n => {
+             if(n.url_origen) nuevosEstados[n.url_origen] = 'ok'
+           })
+        }
+        
+        // Actualizamos el estado sin borrar los anteriores
+        setEstadoFuentes(prev => ({...prev, ...nuevosEstados}))
+
+        // 2. PROCESAR NOTICIAS (Tu lógica original de colores)
         const noticiasConColor = res.data.noticias.map(noticia => {
           const fuenteOrigen = fuentes.find(f => f.url === noticia.url_origen) 
           let colorCaja = '#000'
@@ -242,7 +290,6 @@ function App() {
 
   const generarPost = (noticia) => {
     setCargandoIA(true)
-    // Simular un poco de delay visual si la API responde muy rápido (opcional)
     axios.post('https://mi-ap-noticias.onrender.com/generar-post', { titulo: noticia.titulo, resumen: noticia.resumen, fuente: noticia.fuente })
     .then(res => { setPostContent(res.data.contenido); setMostrarModalPost(true); setCargandoIA(false) })
     .catch(() => setCargandoIA(false))
@@ -256,7 +303,6 @@ function App() {
   return (
     <div className="app-layout">
       
-      {/* BOTÓN TOGGLE (MENU) */}
       <button 
         className={`toggle-btn ${sidebarOpen ? 'open' : ''}`} 
         onClick={() => setSidebarOpen(!sidebarOpen)} 
@@ -269,12 +315,10 @@ function App() {
         </svg>
       </button>
 
-      {/* MODALES */}
       <ModalCaja isOpen={modalCrearOpen} onClose={() => setModalCrearOpen(false)} onConfirm={crearCaja} tituloModal="NUEVA CAJA" />
       <ModalCaja isOpen={modalEditarOpen} onClose={() => setModalEditarOpen(false)} onConfirm={actualizarCaja} tituloModal="EDITAR CAJA" initialName={cajaParaEditar?.name} initialColor={cajaParaEditar?.color}/>
       {mostrarModalPost && <ModalPostEditor onClose={() => setMostrarModalPost(false)} content={postContent} setContent={setPostContent} onCopy={() => navigator.clipboard.writeText(postContent)} />}
 
-      {/* SIDEBAR */}
       <aside className={`sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
         <div className="sidebar-header">
            <div className="user-welcome">Hola, {username}</div>
@@ -314,7 +358,6 @@ function App() {
         <button onClick={() => supabase.auth.signOut()} className="btn-logout">CERRAR SESIÓN</button>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="main-content">
         <div className="content-header">
           <div className="box-title-container">
@@ -344,30 +387,43 @@ function App() {
                 AÑADIR
               </button>
             </div>
+            
             <div style={{marginTop:'15px', display:'flex', flexWrap:'wrap', gap:'10px'}}>
-              {fuentes.filter(f => f.box_id === cajaEditando.id).map(f => (
-                <div key={f.id} style={{background:'white', border:'1px solid #ddd', padding:'5px 10px', borderRadius:'4px', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:'8px', fontWeight:'500'}}>
-                  <span style={{maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{f.url}</span>
-                  <button onClick={() => borrarFuente(f.id)} style={{color:'red', border:'none', background:'none', cursor:'pointer', fontWeight:'bold'}}>×</button>
-                </div>
-              ))}
+              {fuentes.filter(f => f.box_id === cajaEditando.id).map(f => {
+                // AQUÍ CALCULAMOS EL ICONO SEGÚN EL ESTADO
+                const status = estadoFuentes[f.url]
+                return (
+                  <div key={f.id} style={{background:'white', border:'1px solid #ddd', padding:'5px 10px', borderRadius:'4px', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:'8px', fontWeight:'500'}}>
+                    
+                    {/* ICONOS DE ESTADO (NEGROS PUROS) */}
+                    {status === 'ok' && (
+                       <span title="Fuente activa" style={{color:'black', fontSize:'1rem'}}>✔</span>
+                    )}
+                    {status === 'error' && (
+                       <span title="No se pudo leer" style={{color:'black', fontSize:'1rem'}}>✘</span>
+                    )}
+                    
+                    <span style={{maxWidth:'200px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', color: status === 'error' ? '#999' : 'black'}}>
+                       {f.url}
+                    </span>
+                    <button onClick={() => borrarFuente(f.id)} style={{color:'red', border:'none', background:'none', cursor:'pointer', fontWeight:'bold', marginLeft:'5px'}}>×</button>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
 
         <div className="news-grid">
           {cargandoNoticias ? (
-            // --- SKELETON LOADING (Muestra 6 tarjetas falsas) ---
             [...Array(6)].map((_, i) => <SkeletonCard key={i} />)
           ) : (
-            // --- NOTICIAS REALES CON ANIMACIÓN ESCALONADA ---
             noticias.map((noticia, index) => (
               <div 
                 key={index} 
                 className="news-card" 
                 style={{ 
                   borderColor: noticia.color || 'black',
-                  // Aquí está la magia de la cascada: retraso basado en el índice
                   animationDelay: `${index * 0.1}s` 
                 }}
               >
