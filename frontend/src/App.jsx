@@ -5,6 +5,9 @@ import Auth from './Auth'
 import UsernameForm from './UsernameForm'
 import './App.css'
 
+// 1 hora en milisegundos (1000 ms * 60 seg * 60 min)
+const TIEMPO_CACHE = 60 * 60 * 1000 
+const CACHE_KEY = 'noticias_cache_v1'
 // --- CONSTANTES ---
 const COLORES_MATE = [
   '#333333', '#2E5E4E', '#8B3A3A', '#3B4E78', '#8B6508', '#5D478B', '#A0522D'
@@ -247,45 +250,82 @@ function App() {
     fetchFuentesTodas()
   }
 
-  const cargarNoticiasAPI = (urls) => {
+  const cargarNoticiasAPI = (urls, forzarRecarga = false) => {
+    if (urls.length === 0) {
+      setNoticias([])
+      return
+    }
+
+    // 1. GENERAR IDENTIFICADOR ÚNICO DE ESTA BÚSQUEDA
+    // (Si cambias las URLs, la clave cambia y fuerza recarga)
+    const requestKey = JSON.stringify(urls.sort())
+    
+    // 2. REVISAR CACHÉ (Si no estamos forzando recarga)
+    if (!forzarRecarga) {
+      const cacheGuardado = localStorage.getItem(CACHE_KEY)
+      if (cacheGuardado) {
+        const cache = JSON.parse(cacheGuardado)
+        const ahora = Date.now()
+
+        // ¿Es la misma lista de URLs? Y ¿Ha pasado menos de 1 hora?
+        if (cache.requestKey === requestKey && (ahora - cache.timestamp < TIEMPO_CACHE)) {
+          console.log("⚡ Usando noticias desde caché (Sin gastar API)")
+          
+          // Restauramos noticias y estados visuales
+          setNoticias(procesarColores(cache.datos.noticias))
+          setEstadoFuentes(prev => ({...prev, ...cache.datos.estados}))
+          setCargandoNoticias(false)
+          return // ¡TERMINAMOS AQUÍ! NO LLAMAMOS AL BACKEND
+        }
+      }
+    }
+
+    // 3. SI NO HAY CACHÉ O EXPIRÓ -> LLAMAMOS A LA API
     setCargandoNoticias(true)
-    // RECUERDA: Cambiar a tu URL de producción en Render si vas a subir cambios
+    
+    // RECUERDA: Cambiar URL a producción (https://mi-ap-noticias.onrender.com...)
     axios.post('https://mi-ap-noticias.onrender.com/obtener-noticias', { urls }) 
       .then(res => {
-        // 1. PROCESAR ESTADOS (Check vs Cruz)
+        // A. Procesar estados (Ticks y Cruces)
         const nuevosEstados = {}
-        
-        // Las que fallaron (Backend devuelve lista 'fallos')
-        if (res.data.fallos) {
-          res.data.fallos.forEach(url => {
-            nuevosEstados[url] = 'error'
-          })
-        }
-        
-        // Las que funcionaron (Están en 'noticias')
-        if (res.data.noticias) {
-           res.data.noticias.forEach(n => {
-             if(n.url_origen) nuevosEstados[n.url_origen] = 'ok'
-           })
-        }
-        
-        // Actualizamos el estado sin borrar los anteriores
-        setEstadoFuentes(prev => ({...prev, ...nuevosEstados}))
-
-        // 2. PROCESAR NOTICIAS (Tu lógica original de colores)
-        const noticiasConColor = res.data.noticias.map(noticia => {
-          const fuenteOrigen = fuentes.find(f => f.url === noticia.url_origen) 
-          let colorCaja = '#000'
-          if (fuenteOrigen) {
-             const caja = cajas.find(c => c.id === fuenteOrigen.box_id)
-             if (caja) colorCaja = caja.color
-          }
-          return { ...noticia, color: colorCaja }
+        if (res.data.fallos) res.data.fallos.forEach(u => nuevosEstados[u] = 'error')
+        if (res.data.noticias) res.data.noticias.forEach(n => {
+           if(n.url_origen) nuevosEstados[n.url_origen] = 'ok'
         })
-        setNoticias(noticiasConColor)
+
+        // B. Guardar en Caché para la próxima
+        const datosParaGuardar = {
+          timestamp: Date.now(),
+          requestKey: requestKey,
+          datos: {
+            noticias: res.data.noticias,
+            estados: nuevosEstados
+          }
+        }
+        localStorage.setItem(CACHE_KEY, JSON.stringify(datosParaGuardar))
+
+        // C. Actualizar estado de la App
+        setEstadoFuentes(prev => ({...prev, ...nuevosEstados}))
+        setNoticias(procesarColores(res.data.noticias))
         setCargandoNoticias(false)
       })
-      .catch(() => setCargandoNoticias(false))
+      .catch((err) => {
+        console.error(err)
+        setCargandoNoticias(false)
+      })
+  }
+
+  // Función auxiliar para repintar colores (necesaria porque el caché guarda datos crudos)
+  const procesarColores = (listaNoticias) => {
+    return listaNoticias.map(noticia => {
+      const fuenteOrigen = fuentes.find(f => f.url === noticia.url_origen) 
+      let colorCaja = '#000'
+      if (fuenteOrigen) {
+         const caja = cajas.find(c => c.id === fuenteOrigen.box_id)
+         if (caja) colorCaja = caja.color
+      }
+      return { ...noticia, color: colorCaja }
+    })
   }
 
   const generarPost = (noticia) => {
@@ -364,11 +404,28 @@ function App() {
             <h2 className="box-title" style={{color: cajaEditando ? cajaEditando.color : 'black'}}>
               {cajaEditando ? cajaEditando.name : 'Mi Feed'}
             </h2>
+            
+            {/* --- NUEVO: BOTÓN DE REFRESCAR --- */}
             {cajaEditando && (
-              <button className="btn-edit-box" onClick={() => abrirModalEdicion(cajaEditando)}>
-                EDITAR ✎
-              </button>
+              <div style={{display:'flex', gap:'10px'}}>
+                <button 
+                  className="btn-edit-box" 
+                  onClick={() => {
+                     // Obtenemos las URLs actuales y forzamos (true)
+                     const urlsActuales = fuentes.filter(f => f.box_id === cajaEditando.id).map(f => f.url)
+                     cargarNoticiasAPI(urlsActuales, true) 
+                  }}
+                  title="Buscar noticias nuevas ahora"
+                >
+                  ↻ REFRESCAR
+                </button>
+                <button className="btn-edit-box" onClick={() => abrirModalEdicion(cajaEditando)}>
+                  EDITAR ✎
+                </button>
+              </div>
             )}
+            {/* ---------------------------------- */}
+            
           </div>
         </div>
 
