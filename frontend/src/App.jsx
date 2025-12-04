@@ -343,23 +343,29 @@ function App() {
   return (
     <div className="app-layout">
       
-      <button 
-        className={`toggle-btn ${sidebarOpen ? 'open' : ''}`} 
-        onClick={() => setSidebarOpen(!sidebarOpen)} 
-        title={sidebarOpen ? "Cerrar menú" : "Abrir menú"}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
-      </button>
+      
 
       <ModalCaja isOpen={modalCrearOpen} onClose={() => setModalCrearOpen(false)} onConfirm={crearCaja} tituloModal="NUEVA CAJA" />
       <ModalCaja isOpen={modalEditarOpen} onClose={() => setModalEditarOpen(false)} onConfirm={actualizarCaja} tituloModal="EDITAR CAJA" initialName={cajaParaEditar?.name} initialColor={cajaParaEditar?.color}/>
       {mostrarModalPost && <ModalPostEditor onClose={() => setMostrarModalPost(false)} content={postContent} setContent={setPostContent} onCopy={() => navigator.clipboard.writeText(postContent)} />}
 
       <aside className={`sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
+  
+        {/* --- AQUÍ PEGAS EL BOTÓN QUE CORTASTE --- */}
+        <button 
+          className={`toggle-btn ${sidebarOpen ? 'open' : ''}`} 
+          onClick={() => setSidebarOpen(!sidebarOpen)} 
+          title={sidebarOpen ? "Cerrar menú" : "Abrir menú"}
+        >
+          {/* Cambiamos el SVG complejo por una flecha simple para el piquito */}
+          {sidebarOpen ? '▼' : '▲'}
+        </button>
+        {/* -------------------------------------- */}
+
+        <div className="sidebar-header">
+          <div className="user-welcome">Hola, {username}</div>
+        </div>
+        
         <div className="sidebar-header">
            <div className="user-welcome">Hola, {username}</div>
         </div>

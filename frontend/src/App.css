@@ -370,21 +370,21 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
   animation: spin 1s linear infinite;
 }
 /* =========================================
-   DISEÑO MÓVIL: MENU DESPLEGABLE (DRAWER)
+   DISEÑO MÓVIL: MENU DESPLEGABLE CON PIQUITO
    ========================================= */
 
 @media (max-width: 768px) {
 
-  /* 1. ARREGLO DEL "MODO ESPECTADOR" (SCROLL) */
+  /* 1. ARREGLO DE SCROLL Y ESTRUCTURA */
   html, body {
-    overflow-y: auto !important; /* Permite bajar */
+    overflow-y: auto !important;
     overflow-x: hidden;
     height: auto !important;
     position: static !important;
   }
 
   .app-layout {
-    display: block; /* Bloque normal, no flex */
+    display: block;
     height: auto;
     overflow: visible;
   }
@@ -392,114 +392,103 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
   .main-content {
     margin-left: 0 !important;
     width: 100%;
-    height: auto;
-    overflow: visible; /* Importante para que el scroll del body funcione */
-    padding-bottom: 100px; /* Espacio para que el botón flotante no tape lo último */
+    padding-bottom: 100px; /* Espacio para no chocar con el piquito */
   }
 
-  /* 2. BOTÓN FLOTANTE (HAMBURGUESA) */
-  /* Lo traemos de vuelta y lo ponemos flotando abajo a la derecha */
-  .toggle-btn {
-    display: flex !important;
-    position: fixed;
-    top: auto !important; /* Anulamos la posición de arriba */
-    left: auto !important; /* Anulamos la izquierda */
-    bottom: 25px;
-    right: 25px;
-    
-    width: 60px;
-    height: 60px;
-    border-radius: 50%; /* Redondo */
-    
-    background-color: black;
-    color: white;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-    z-index: 6000; /* Por encima de todo */
-    
-    /* Animación suave */
-    transition: transform 0.2s, background-color 0.2s;
-  }
-  
-  /* Cuando el menú está abierto, el botón cambia a blanco */
-  .toggle-btn.open {
-    background-color: white;
-    color: black;
-    border: 2px solid black;
-    transform: rotate(90deg); /* Efecto visual */
-    left: auto !important; /* Aseguramos que no se vaya a la izquierda */
-  }
-
-  /* 3. EL MENÚ DESPLEGABLE (DRAWER) */
+  /* 2. EL PANEL (DRAWER) */
   .sidebar {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100% !important;
     height: auto;
-    max-height: 85vh; /* No cubre toda la pantalla, deja ver un poco arriba */
+    max-height: 85vh; /* Que no cubra toda la pantalla al abrir */
     
     background-color: #111;
     border-top: 2px solid #333;
-    border-right: none;
-    
-    /* Bordes redondeados arriba estilo App moderna */
-    border-radius: 25px 25px 0 0;
-    padding: 25px;
+    border-radius: 0; 
     
     display: flex;
     flex-direction: column;
     z-index: 5000;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
     
-    /* ANIMACIÓN DE DESPLIEGUE */
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateY(0); /* Estado Abierto: Posición normal */
+    transform: translateY(0); /* Abierto */
     
-    /* Reset de propiedades desktop */
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    padding-top: 25px !important;
+    /* ¡LA CLAVE! Visible para que el piquito asome por arriba */
+    overflow: visible !important; 
+    
+    padding: 25px;
+    padding-top: 20px;
   }
 
-  /* ESTADO CERRADO: Se esconde abajo */
+  /* ESTADO CERRADO: Se esconde justo en el borde inferior */
   .sidebar.collapsed {
-    transform: translateY(110%); /* Se baja más allá de la pantalla */
-    width: 100% !important;
+    transform: translateY(100%); 
   }
 
-  /* 4. RECUPERAMOS LOS BOTONES PERDIDOS */
-  .sidebar-header { display: block !important; border-bottom: 1px solid #333; margin-bottom: 20px; }
-  .user-welcome { display: block !important; font-size: 1.8rem; }
-  .btn-logout { display: block !important; margin-top: 20px; padding: 15px; width: 100%; text-align: center; border: 1px solid #333; border-radius: 8px; }
-  .btn-new-box { display: block !important; }
-  
-  /* Titulo de colecciones */
-  .sidebar > div { display: flex !important; }
+  /* 3. EL BOTÓN "PIQUITO" (PESTAÑA) */
+  .toggle-btn {
+    display: flex !important;
+    position: absolute; /* Ahora es absoluto AL SIDEBAR */
+    
+    /* LO SUBIMOS PARA QUE SOBRESALGA */
+    top: -35px; 
+    left: 50%;
+    transform: translateX(-50%); /* Centrado horizontal */
+    
+    width: 60px;
+    height: 35px;
+    
+    /* Forma de Pestaña */
+    border-radius: 10px 10px 0 0; 
+    background-color: #111; 
+    color: #888;
+    
+    border: 2px solid #333;
+    border-bottom: none; /* Sin borde abajo para fusionarse */
+    
+    z-index: 6000;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
 
-  /* 5. LISTA DE CAJAS (VERTICAL OTRA VEZ) */
+  /* Estilo cuando está abierto */
+  .toggle-btn.open {
+    background-color: #111;
+    color: white;
+    left: 50% !important; /* Mantiene el centro */
+  }
+
+  /* 4. ELEMENTOS VISIBLES EN MÓVIL */
+  .sidebar-header, .user-welcome, .btn-logout, .btn-new-box, .sidebar > div {
+    display: flex !important;
+    flex-direction: column; 
+  }
+  
+  .user-welcome { font-size: 1.5rem; margin-bottom: 0; }
+  .btn-logout { width: 100%; border: 1px solid #333; text-align: center; margin-top: 20px; padding: 15px; border-radius: 8px;}
+
   .boxes-list {
-    flex-direction: column; /* Volvemos a lista vertical */
+    flex-direction: column;
     overflow-y: auto;
-    overflow-x: hidden;
-    max-height: 300px; /* Si tienes muchas cajas, scrollean dentro del menú */
+    max-height: 300px;
     padding-right: 5px;
   }
 
   .box-item {
     background: transparent;
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 10px;
-    justify-content: space-between;
+    padding: 10px;
+    margin-bottom: 5px;
   }
-  
-  /* Ajustes visuales generales para móvil */
-  .news-grid { grid-template-columns: 1fr; gap: 30px; padding: 20px 15px; }
-  .content-header { flex-direction: column; gap: 15px; padding: 20px; padding-top: 40px; }
-  .box-title { font-size: 2rem; }
+
+  /* Ajustes generales */
+  .news-grid { grid-template-columns: 1fr; gap: 20px; padding: 20px; }
+  .content-header { flex-direction: column; gap: 15px; padding: 20px; }
   .input-group { flex-direction: column; }
   .btn-add { width: 100%; }
-  
-  /* Modales */
-  .modal-content, .auth-card { width: 90% !important; max-width: none; padding: 20px; }
+  .modal-content, .auth-card { width: 90% !important; max-width: none; }
 }
