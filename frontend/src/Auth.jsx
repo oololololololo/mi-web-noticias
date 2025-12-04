@@ -12,7 +12,7 @@ export default function Auth() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin } // O tu URL de Netlify si estás en local
+      options: { redirectTo: window.location.origin }
     })
     if (error) {
       setMensaje({ tipo: 'error', texto: error.message })
@@ -37,22 +37,24 @@ export default function Auth() {
 
   return (
     <div className="auth-container">
+      
+      {/* --- AQUÍ ESTÁ TU NUEVA MARCA --- */}
+      <h1 className="brand-header">NEWS AGGREGATOR</h1>
+      {/* ------------------------------- */}
+
       <div className="auth-card">
         
-        {/* CABECERA */}
         <h1 className="auth-title">
           {modoRegistro ? 'CREAR CUENTA' : 'INICIAR SESIÓN'}
         </h1>
         <p className="auth-subtitle">Gestiona tus propias fuentes de noticias.</p>
 
-        {/* MENSAJES DE ERROR/EXITO */}
         {mensaje && (
           <div className={`auth-message ${mensaje.tipo}`}>
             {mensaje.texto}
           </div>
         )}
 
-        {/* FORMULARIO */}
         <form onSubmit={handleAuth} className="auth-form">
           <input 
             className="auth-input" 
@@ -76,10 +78,8 @@ export default function Auth() {
           </button>
         </form>
 
-        {/* SEPARADOR SUTIL */}
         <div className="auth-separator">o continúa con</div>
 
-        {/* BOTÓN GOOGLE */}
         <button onClick={handleGoogleLogin} className="btn-auth-google" disabled={loading}>
           <svg width="18" height="18" viewBox="0 0 24 24" style={{marginRight: '10px'}}>
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -90,7 +90,6 @@ export default function Auth() {
           GOOGLE
         </button>
 
-        {/* PIE DE PÁGINA (TOGGLE) */}
         <div className="auth-footer">
           {modoRegistro ? '¿Ya tienes cuenta?' : '¿Nuevo aquí?'}
           <button 

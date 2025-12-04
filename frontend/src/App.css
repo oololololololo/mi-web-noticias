@@ -190,11 +190,27 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
 
 .auth-container {
   display: flex;
+  flex-direction: column; /* IMPORTANTE: Esto pone el título ARRIBA de la caja */
   justify-content: center;
   align-items: center;
   height: 100vh;
   width: 100vw;
-  background-color: #ffffff; /* Fondo limpio */
+  background-color: #ffffff;
+  padding: 20px; /* Un poco de margen en móviles */
+}
+
+/* AGREGA ESTO: El estilo del título gigante */
+.brand-header {
+  font-family: 'Merriweather', serif; /* Fuente estilo periódico */
+  font-size: 3.5rem; /* Tamaño gigante */
+  font-weight: 900; /* Extra negrita */
+  color: black;
+  margin: 0;
+  margin-bottom: 40px; /* Espacio entre el título y la caja */
+  text-transform: uppercase;
+  letter-spacing: -2px; /* Las letras apretadas se ven más modernas */
+  text-align: center;
+ 
 }
 
 .auth-card {
