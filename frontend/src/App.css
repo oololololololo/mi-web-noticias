@@ -373,108 +373,165 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
    RESPONSIVE DESIGN (CELULARES Y TABLETS)
    ========================================= */
 
+/* =========================================
+   DISEÑO MÓVIL: BARRA DE NAVEGACIÓN INFERIOR
+   ========================================= */
+
 @media (max-width: 768px) {
 
-  /* 1. LAYOUT PRINCIPAL: Sidebar flotante */
+  /* 1. ESTRUCTURA PRINCIPAL */
   .app-layout {
-    position: relative;
-    /* En móvil permitimos scroll si es necesario */
-    overflow-x: hidden; 
+    display: block; /* Quitamos flex para apilar elementos */
+    background-color: white;
   }
 
+  /* 2. TRANSFORMAMOS EL SIDEBAR EN BOTTOM BAR */
   .sidebar {
-    position: absolute; /* Flota sobre el contenido */
-    height: 100%;
-    z-index: 1000; /* Siempre encima */
-    box-shadow: 5px 0 15px rgba(0,0,0,0.5); /* Sombra para separar */
-  }
-
-  /* Cuando el menú se cierra en móvil, que desaparezca totalmente */
-  .sidebar.collapsed {
-    transform: translateX(-100%);
-    width: 280px; /* Mantiene ancho para animación */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;       /* Ocupa todo el ancho */
+    height: 80px;      /* Altura fija para la barra */
+    
+    /* Cambiamos la dirección a fila horizontal */
+    flex-direction: row; 
+    align-items: center;
+    padding: 10px 15px;
+    
+    /* Estilos visuales de barra */
+    background-color: #111; 
+    border-right: none;
+    border-top: 2px solid #333;
+    z-index: 5000;
+    
+    /* Importante: Sobrescribimos el comportamiento de "colapsado" */
+    width: 100% !important; 
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    padding-top: 10px !important; /* Reseteamos el padding del sidebar original */
   }
   
-  /* 2. CONTENIDO PRINCIPAL: Ocupa todo el ancho */
-  .main-content {
-    width: 100vw; /* Ancho completo */
-    margin-left: 0 !important; /* Ignora márgenes de escritorio */
-    padding-bottom: 80px; /* Espacio para scroll */
+  /* Ocultamos cosas que no caben en la barra móvil */
+  .sidebar-header, 
+  .user-welcome, 
+  .btn-logout,
+  .sidebar > div > span /* Texto "MIS COLECCIONES" */ {
+    display: none !important;
   }
 
+  /* 3. LISTA DE CAJAS (SCROLL HORIZONTAL) */
+  .boxes-list {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    overflow-x: auto; /* Permite deslizar con el dedo */
+    overflow-y: hidden;
+    padding-bottom: 5px; /* Espacio para la barra de scroll sutil */
+    width: 100%;
+    scroll-behavior: smooth;
+    
+    /* Ocultar barra de scroll fea en Chrome/Safari */
+    -webkit-overflow-scrolling: touch; 
+  }
+  
+  /* Ocultamos la barra de scroll visualmente pero mantenemos la función */
+  .boxes-list::-webkit-scrollbar {
+    height: 0px;
+    background: transparent;
+  }
+
+  /* 4. ITEMS DE LAS CAJAS (TARJETAS PEQUEÑAS) */
+  .box-item {
+    min-width: 140px; /* Ancho fijo para que se vean bien */
+    margin-bottom: 0;
+    background-color: #222; /* Fondo tarjeta oscura */
+    padding: 8px 12px;
+    border-radius: 8px;
+    flex-shrink: 0; /* Evita que se aplasten */
+  }
+
+  /* Ajustes internos de la caja */
+  .box-left {
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Botones de acción (ojo/borrar) más fáciles de tocar */
+  .box-actions {
+    opacity: 1; /* Siempre visibles en móvil */
+  }
+
+  /* 5. BOTÓN NUEVA CAJA (CIRCULAR AL FINAL) */
+  .btn-new-box {
+    min-width: 50px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%; /* Círculo */
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    padding: 0;
+    background: #333;
+    color: white;
+    border: 1px dashed #666;
+    flex-shrink: 0;
+  }
+  .btn-new-box span { display: none; } /* Ocultamos el texto "+ NUEVA CAJA" si tuviera */
+
+  /* 6. CONTENIDO PRINCIPAL */
+  .main-content {
+    margin-left: 0 !important;
+    padding-bottom: 100px; /* Espacio extra abajo para que la barra no tape el contenido */
+    width: 100%;
+  }
+
+  /* Ajustes del Header de Contenido */
   .content-header {
-    padding: 20px; /* Menos relleno */
-    padding-left: 70px; /* Espacio para el botón de menú */
-    flex-direction: column; /* Título arriba, botones abajo */
+    padding: 20px;
+    padding-top: 20px; /* Ya no necesitamos espacio para el toggle button */
+    flex-direction: column;
     align-items: flex-start;
     gap: 15px;
   }
-  
-  .box-title-container {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
 
-  .box-title {
-    font-size: 1.8rem; /* Título más pequeño */
-    word-break: break-word;
-  }
-
-  /* 3. PANELES Y GRID DE NOTICIAS */
-  .sources-panel {
-    padding: 20px;
-  }
-  
-  .input-group {
-    flex-direction: column; /* Input arriba, botón abajo */
-    align-items: stretch;
-  }
-  
-  .btn-add {
-    width: 100%; /* Botón ancho completo */
-    text-align: center;
-  }
-
-  .news-grid {
-    padding: 20px;
-    grid-template-columns: 1fr; /* Una sola columna */
-    gap: 25px;
-  }
-
-  /* 4. MODALES: Adaptables al ancho */
-  .modal-content, .modal-content.terminal, .auth-card {
-    width: 90% !important; /* 90% del ancho de pantalla */
-    max-width: none;
-    padding: 20px;
-  }
-
-  .terminal-textarea {
-    height: 200px; /* Menos altura en móvil */
-  }
-  
-  /* 5. AUTH / LOGIN */
-  .brand-header {
-    font-size: 2rem; /* Marca más pequeña */
-    margin-bottom: 20px;
-  }
-  
-  .auth-container {
-    padding: 15px;
-    height: auto;
-    min-height: 100vh;
-  }
-
-  /* 6. BOTÓN TOGGLE (MENÚ) */
+  /* Ocultamos el botón de hamburguesa (Ya no sirve en este modo) */
   .toggle-btn {
-    top: 15px;
-    left: 15px;
-    width: 40px;
-    height: 40px;
+    display: none !important;
   }
   
-  /* Ajuste crítico: Cuando el menú abre, el botón se mueve menos o se queda fijo */
-  .toggle-btn.open {
-    left: 230px; /* Sigue al sidebar */
+  /* Titulo más pequeño */
+  .box-title {
+    font-size: 1.8rem;
+  }
+
+  /* 7. FORMULARIOS Y MODALES ADAPTABLES */
+  .sources-panel, .news-grid {
+    padding: 15px;
+  }
+  
+  .news-grid {
+    grid-template-columns: 1fr; /* 1 columna */
+    gap: 20px;
+  }
+  
+  /* Input y botones al 100% */
+  .input-group { flex-direction: column; }
+  .input-url, .btn-add { width: 100%; }
+  
+  /* Modales ocupan casi toda la pantalla */
+  .modal-content, .auth-card {
+    width: 90% !important;
+    padding: 20px;
+  }
+  
+  /* Ajuste de título gigante en Login */
+  .brand-header {
+    font-size: 2.2rem;
+    margin-bottom: 20px;
   }
 }
