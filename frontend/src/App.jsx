@@ -350,20 +350,18 @@ function App() {
       {mostrarModalPost && <ModalPostEditor onClose={() => setMostrarModalPost(false)} content={postContent} setContent={setPostContent} onCopy={() => navigator.clipboard.writeText(postContent)} />}
 
       <aside className={`sidebar ${sidebarOpen ? '' : 'collapsed'}`}>
-  
-        {/* --- AQUÍ PEGAS EL BOTÓN QUE CORTASTE --- */}
+        
         <button 
           className={`toggle-btn ${sidebarOpen ? 'open' : ''}`} 
           onClick={() => setSidebarOpen(!sidebarOpen)} 
           title={sidebarOpen ? "Cerrar menú" : "Abrir menú"}
         >
-          {/* Cambiamos el SVG complejo por una flecha simple para el piquito */}
-          {sidebarOpen ? '▼' : '▲'}
+          {/* Usamos iconos simples que funcionan siempre */}
+          {sidebarOpen ? '✖' : '☰'} 
         </button>
-        {/* -------------------------------------- */}
 
         <div className="sidebar-header">
-          <div className="user-welcome">Hola, {username}</div>
+           <div className="user-welcome">Hola, {username}</div>
         </div>
         
         <div className="sidebar-header">

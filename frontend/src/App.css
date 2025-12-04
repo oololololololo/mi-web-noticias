@@ -8,63 +8,57 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
 .app-layout { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
 
 /* --- SIDEBAR (ESTILO DARK MATTE) --- */
+/* --- SIDEBAR PC (ESTILO FIJO + BOTÓN COLGANTE) --- */
 .sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
   width: 280px;
-  background-color: #111111;
+  background-color: #111;
   border-right: 1px solid #333;
-  display: flex; flex-direction: column;
   padding: 20px;
-  padding-top: 70px;
-  flex-shrink: 0;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s;
-  z-index: 20;
-  white-space: nowrap;
+  padding-top: 80px;
+  z-index: 5000;
   color: #e0e0e0;
-  overflow-x: hidden; 
+  
+  /* Animación de movimiento */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(0); /* Abierto por defecto */
+  
+  /* ¡VITAL! Esto permite que el botón se vea fuera del panel */
+  overflow: visible !important; 
 }
 
-.sidebar.collapsed { width: 0px; padding-left: 0; padding-right: 0; border: none; }
-.sidebar.collapsed * { opacity: 0; pointer-events: none; }
-
-.sidebar-header { margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #333; min-width: 240px; }
-.user-welcome { font-family: 'Merriweather', serif; font-size: 2.2rem; font-weight: 900; color: #ffffff; margin-top: 0; line-height: 1.1; letter-spacing: -1px; white-space: normal; }
-
-.boxes-list { list-style: none; padding: 0; margin: 0; flex-grow: 1; overflow-y: auto; }
-
-.box-item {
-  padding: 12px 15px; margin-bottom: 10px; background: transparent; 
-  border: 1px solid transparent; border-radius: 6px; cursor: pointer;
-  font-size: 0.95rem; font-weight: 600; color: #ccc; transition: all 0.2s;
-  display: flex; align-items: center; justify-content: space-between;
+/* AL CERRAR: Se mueve a la izquierda (-100%) pero mantiene su ancho */
+.sidebar.collapsed {
+  transform: translateX(-100%); 
+  width: 280px; 
 }
-.box-item:hover { background-color: #222; color: white; transform: translateY(-1px); }
-.box-item.editing { background-color: #333; border-color: #555; color: white; }
 
-.box-left { display: flex; align-items: center; gap: 12px; overflow: hidden; }
-.color-bar { width: 4px; height: 16px; border-radius: 2px; flex-shrink: 0; }
-.box-actions { display: flex; gap: 5px; opacity: 0.5; transition: 0.2s; }
-.box-item:hover .box-actions { opacity: 1; }
-
-.icon-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #777; }
-.icon-btn:hover { background-color: #444; color: white; }
-.icon-btn.active-eye { color: white; transform: scale(1.1); }
-
-.btn-new-box { width: 100%; padding: 15px; border: 1px dashed #444; background: transparent; color: #888; font-weight: bold; cursor: pointer; margin-top: 20px; text-transform: uppercase; border-radius: 6px; transition: 0.2s; }
-.btn-new-box:hover { border-color: #fff; color: #fff; background: #222; }
-.btn-logout { margin-top: auto; border: none; background: none; color: #ff5555; font-weight: bold; cursor: pointer; padding: 10px 0; text-align: left; }
-.btn-logout:hover { color: #ff8888; text-decoration: underline; }
-
-/* --- BOTÓN TOGGLE --- */
+/* EL BOTÓN: Se pega al borde derecho del panel */
 .toggle-btn {
-  position: fixed; top: 20px; left: 20px; z-index: 2000; width: 45px; height: 45px;
-  background-color: black; color: white; border: 1px solid #333; border-radius: 6px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s, background-color 0.2s;
+  position: absolute; /* Absoluto respecto al Sidebar */
+  top: 20px;
+  right: -50px; /* Lo sacamos 50px hacia la derecha */
+  
+  width: 50px;
+  height: 50px;
+  
+  background-color: #111;
+  color: white;
+  border: 1px solid #333;
+  border-left: none; /* Sin borde izquierdo para que parezca unido */
+  border-radius: 0 8px 8px 0; /* Redondo solo a la derecha */
+  
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  box-shadow: 5px 0 10px rgba(0,0,0,0.2);
+  z-index: 6000;
 }
-.toggle-btn.open { left: 225px; background-color: white; color: black; border-color: white; }
-.toggle-btn:hover { transform: scale(1.05); }
-
 /* --- MAIN CONTENT --- */
 .main-content { flex-grow: 1; display: flex; flex-direction: column; overflow-y: auto; background: white; position: relative; transition: margin-left 0.3s; }
 .content-header { padding: 30px 50px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.95); backdrop-filter: blur(5px); position: sticky; top: 0; z-index: 10; padding-left: 100px; }
@@ -370,100 +364,57 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
   animation: spin 1s linear infinite;
 }
 /* =========================================
-   DISEÑO MÓVIL: MENU DESPLEGABLE CON PIQUITO
+   DISEÑO MÓVIL (PIQUITO INFERIOR)
    ========================================= */
 
 @media (max-width: 768px) {
+  
+  /* Arreglo de scroll */
+  html, body { overflow-y: auto !important; height: auto !important; position: static !important; }
+  .app-layout { display: block; height: auto; overflow: visible; }
+  .main-content { margin-left: 0 !important; width: 100%; padding-bottom: 100px; padding-left: 0; }
 
-  /* 1. ARREGLO DE SCROLL Y ESTRUCTURA */
-  html, body {
-    overflow-y: auto !important;
-    overflow-x: hidden;
-    height: auto !important;
-    position: static !important;
-  }
-
-  .app-layout {
-    display: block;
-    height: auto;
-    overflow: visible;
-  }
-
-  .main-content {
-    margin-left: 0 !important;
-    width: 100%;
-    padding-bottom: 100px; /* Espacio para no chocar con el piquito */
-  }
-
-  /* 2. EL PANEL (DRAWER) */
+  /* 1. SIDEBAR SE VA AL FONDO */
   .sidebar {
-    position: fixed;
+    top: auto; 
     bottom: 0;
     left: 0;
     width: 100% !important;
     height: auto;
-    max-height: 85vh; /* Que no cubra toda la pantalla al abrir */
+    max-height: 85vh;
     
-    background-color: #111;
+    border-right: none;
     border-top: 2px solid #333;
-    border-radius: 0; 
-    
-    display: flex;
-    flex-direction: column;
-    z-index: 5000;
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
-    
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateY(0); /* Abierto */
-    
-    /* ¡LA CLAVE! Visible para que el piquito asome por arriba */
-    overflow: visible !important; 
-    
+    border-radius: 25px 25px 0 0;
     padding: 25px;
-    padding-top: 20px;
+    padding-top: 30px;
+    
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
+    transform: translateY(0);
   }
 
-  /* ESTADO CERRADO: Se esconde justo en el borde inferior */
+  /* CERRADO MÓVIL: Se baja */
   .sidebar.collapsed {
     transform: translateY(100%); 
   }
 
-  /* 3. EL BOTÓN "PIQUITO" (PESTAÑA) */
+  /* 2. BOTÓN PIQUITO (MÓVIL) */
   .toggle-btn {
-    display: flex !important;
-    position: absolute; /* Ahora es absoluto AL SIDEBAR */
-    
-    /* LO SUBIMOS PARA QUE SOBRESALGA */
-    top: -35px; 
+    top: -35px; /* ASOMA POR ARRIBA */
+    right: auto;
     left: 50%;
-    transform: translateX(-50%); /* Centrado horizontal */
+    transform: translateX(-50%);
     
-    width: 60px;
+    width: 80px;
     height: 35px;
     
-    /* Forma de Pestaña */
-    border-radius: 10px 10px 0 0; 
-    background-color: #111; 
-    color: #888;
-    
+    border-radius: 10px 10px 0 0;
     border: 2px solid #333;
-    border-bottom: none; /* Sin borde abajo para fusionarse */
-    
-    z-index: 6000;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 0.9rem;
+    border-bottom: none;
+    box-shadow: 0 -5px 10px rgba(0,0,0,0.2);
   }
 
-  /* Estilo cuando está abierto */
-  .toggle-btn.open {
-    background-color: #111;
-    color: white;
-    left: 50% !important; /* Mantiene el centro */
-  }
-
-  /* 4. ELEMENTOS VISIBLES EN MÓVIL */
+  /* Elementos visibles en móvil */
   .sidebar-header, .user-welcome, .btn-logout, .btn-new-box, .sidebar > div {
     display: flex !important;
     flex-direction: column; 
@@ -471,21 +422,10 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
   
   .user-welcome { font-size: 1.5rem; margin-bottom: 0; }
   .btn-logout { width: 100%; border: 1px solid #333; text-align: center; margin-top: 20px; padding: 15px; border-radius: 8px;}
-
-  .boxes-list {
-    flex-direction: column;
-    overflow-y: auto;
-    max-height: 300px;
-    padding-right: 5px;
-  }
-
-  .box-item {
-    background: transparent;
-    padding: 10px;
-    margin-bottom: 5px;
-  }
-
-  /* Ajustes generales */
+  
+  .boxes-list { flex-direction: column; overflow-y: auto; max-height: 300px; padding-right: 5px; }
+  .box-item { background: transparent; padding: 10px; margin-bottom: 5px; }
+  
   .news-grid { grid-template-columns: 1fr; gap: 20px; padding: 20px; }
   .content-header { flex-direction: column; gap: 15px; padding: 20px; }
   .input-group { flex-direction: column; }
