@@ -370,157 +370,136 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
   animation: spin 1s linear infinite;
 }
 /* =========================================
-   RESPONSIVE DESIGN (CELULARES Y TABLETS)
-   ========================================= */
-
-/* =========================================
-   DISEÑO MÓVIL: BARRA DE NAVEGACIÓN INFERIOR
-   ========================================= */
-
-/* =========================================
-   DISEÑO MÓVIL: BARRA DE NAVEGACIÓN INFERIOR (OPTIMIZADA)
+   DISEÑO MÓVIL: MENU DESPLEGABLE (DRAWER)
    ========================================= */
 
 @media (max-width: 768px) {
 
-  /* 1. ESTRUCTURA PRINCIPAL */
-  .app-layout {
-    display: block; 
-    background-color: white;
+  /* 1. ARREGLO DEL "MODO ESPECTADOR" (SCROLL) */
+  html, body {
+    overflow-y: auto !important; /* Permite bajar */
+    overflow-x: hidden;
+    height: auto !important;
+    position: static !important;
   }
 
-  /* 2. SIDEBAR -> BARRA INFERIOR FLOTANTE */
+  .app-layout {
+    display: block; /* Bloque normal, no flex */
+    height: auto;
+    overflow: visible;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    width: 100%;
+    height: auto;
+    overflow: visible; /* Importante para que el scroll del body funcione */
+    padding-bottom: 100px; /* Espacio para que el botón flotante no tape lo último */
+  }
+
+  /* 2. BOTÓN FLOTANTE (HAMBURGUESA) */
+  /* Lo traemos de vuelta y lo ponemos flotando abajo a la derecha */
+  .toggle-btn {
+    display: flex !important;
+    position: fixed;
+    top: auto !important; /* Anulamos la posición de arriba */
+    left: auto !important; /* Anulamos la izquierda */
+    bottom: 25px;
+    right: 25px;
+    
+    width: 60px;
+    height: 60px;
+    border-radius: 50%; /* Redondo */
+    
+    background-color: black;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    z-index: 6000; /* Por encima de todo */
+    
+    /* Animación suave */
+    transition: transform 0.2s, background-color 0.2s;
+  }
+  
+  /* Cuando el menú está abierto, el botón cambia a blanco */
+  .toggle-btn.open {
+    background-color: white;
+    color: black;
+    border: 2px solid black;
+    transform: rotate(90deg); /* Efecto visual */
+    left: auto !important; /* Aseguramos que no se vaya a la izquierda */
+  }
+
+  /* 3. EL MENÚ DESPLEGABLE (DRAWER) */
   .sidebar {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100% !important;
-    height: 70px; /* Altura cómoda para el pulgar */
+    height: auto;
+    max-height: 85vh; /* No cubre toda la pantalla, deja ver un poco arriba */
     
-    /* Disposición horizontal */
+    background-color: #111;
+    border-top: 2px solid #333;
+    border-right: none;
+    
+    /* Bordes redondeados arriba estilo App moderna */
+    border-radius: 25px 25px 0 0;
+    padding: 25px;
+    
     display: flex;
-    flex-direction: row; 
-    align-items: center;
-    
-    background-color: #111; 
-    border-top: 1px solid #333;
+    flex-direction: column;
     z-index: 5000;
-    padding: 0 10px;
-    box-shadow: 0 -5px 20px rgba(0,0,0,0.5); /* Sombra hacia arriba */
-
-    /* Forzar visibilidad */
-    transform: none !important;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
+    
+    /* ANIMACIÓN DE DESPLIEGUE */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0); /* Estado Abierto: Posición normal */
+    
+    /* Reset de propiedades desktop */
     opacity: 1 !important;
     pointer-events: auto !important;
-  }
-  
-  /* Ocultamos elementos innecesarios en móvil */
-  .sidebar-header, .user-welcome, .btn-logout, .sidebar > div, .btn-new-box {
-    display: none !important; 
+    padding-top: 25px !important;
   }
 
-  /* 3. LISTA DE CAJAS (SCROLL HORIZONTAL) */
+  /* ESTADO CERRADO: Se esconde abajo */
+  .sidebar.collapsed {
+    transform: translateY(110%); /* Se baja más allá de la pantalla */
+    width: 100% !important;
+  }
+
+  /* 4. RECUPERAMOS LOS BOTONES PERDIDOS */
+  .sidebar-header { display: block !important; border-bottom: 1px solid #333; margin-bottom: 20px; }
+  .user-welcome { display: block !important; font-size: 1.8rem; }
+  .btn-logout { display: block !important; margin-top: 20px; padding: 15px; width: 100%; text-align: center; border: 1px solid #333; border-radius: 8px; }
+  .btn-new-box { display: block !important; }
+  
+  /* Titulo de colecciones */
+  .sidebar > div { display: flex !important; }
+
+  /* 5. LISTA DE CAJAS (VERTICAL OTRA VEZ) */
   .boxes-list {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    
-    width: 100%;
-    height: 100%;
-    overflow-x: auto; /* Permite deslizar */
-    overflow-y: hidden;
-    padding: 0 10px;
-    
-    /* Suavidad en iOS */
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    flex-direction: column; /* Volvemos a lista vertical */
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 300px; /* Si tienes muchas cajas, scrollean dentro del menú */
+    padding-right: 5px;
   }
-  
-  /* Ocultar barra scroll */
-  .boxes-list::-webkit-scrollbar { display: none; }
 
-  /* 4. ITEMS (ESTILO "CHIP" O PÍLDORA) */
   .box-item {
-    min-width: auto; /* Que el ancho se ajuste al contenido */
-    height: 40px;
-    margin: 0;
-    padding: 0 15px;
-    
-    background-color: #222;
-    border: 1px solid #444;
-    border-radius: 20px; /* Bordes totalmente redondos */
-    
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    
-    flex-shrink: 0; /* EVITA QUE SE APLASTEN */
-    color: #ccc;
-    font-size: 0.85rem;
-  }
-
-  /* Estado Activo (Editando) */
-  .box-item.editing {
-    background-color: white;
-    color: black;
-    border-color: white;
-    font-weight: 800;
-    transform: scale(1.05); /* Un poco más grande */
-    box-shadow: 0 2px 10px rgba(255,255,255,0.2);
-  }
-
-  /* Ajustes internos del item */
-  .box-left {
-    gap: 8px;
+    background: transparent;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    justify-content: space-between;
   }
   
-  .color-bar {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%; /* Punto de color en vez de barra */
-  }
-
-  /* 5. ACCIONES (OJO / BASURERO) */
-  .box-actions {
-    display: flex;
-    align-items: center;
-  }
-  
-  /* EN MÓVIL: Ocultamos el basurero para ahorrar espacio y evitar clics error */
-  .box-actions button:last-child { 
-    display: none; 
-  }
-  
-  /* El ojo lo dejamos pero más sutil */
-  .icon-btn {
-    padding: 0;
-    color: inherit; /* Hereda color del texto (blanco o negro) */
-  }
-
-  /* 6. BOTÓN "+" FLOTANTE (REEMPLAZO) */
-  /* Como ocultamos el botón de texto grande, creamos uno falso al final de la lista si quieres,
-     o simplemente usamos un botón flotante en la pantalla */
-  
-  /* CONTENIDO PRINCIPAL */
-  .main-content {
-    width: 100%;
-    margin: 0 !important;
-    padding-bottom: 90px; /* Espacio para que la barra no tape lo último */
-  }
-
-  .content-header {
-    padding: 20px;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  
-  .toggle-btn { display: none !important; }
-
-  /* Modales y Login Responsive */
-  .modal-content, .auth-card { width: 90% !important; padding: 20px; }
-  .news-grid { grid-template-columns: 1fr; gap: 20px; padding: 15px; }
+  /* Ajustes visuales generales para móvil */
+  .news-grid { grid-template-columns: 1fr; gap: 30px; padding: 20px 15px; }
+  .content-header { flex-direction: column; gap: 15px; padding: 20px; padding-top: 40px; }
+  .box-title { font-size: 2rem; }
   .input-group { flex-direction: column; }
-  .brand-header { font-size: 2.5rem; margin-bottom: 20px; }
+  .btn-add { width: 100%; }
+  
+  /* Modales */
+  .modal-content, .auth-card { width: 90% !important; max-width: none; padding: 20px; }
 }
