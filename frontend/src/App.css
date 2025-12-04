@@ -369,3 +369,112 @@ body { background-color: #ffffff; color: #111; font-family: 'Inter', sans-serif;
   display: inline-block; /* Necesario para que el transform funcione en texto */
   animation: spin 1s linear infinite;
 }
+/* =========================================
+   RESPONSIVE DESIGN (CELULARES Y TABLETS)
+   ========================================= */
+
+@media (max-width: 768px) {
+
+  /* 1. LAYOUT PRINCIPAL: Sidebar flotante */
+  .app-layout {
+    position: relative;
+    /* En móvil permitimos scroll si es necesario */
+    overflow-x: hidden; 
+  }
+
+  .sidebar {
+    position: absolute; /* Flota sobre el contenido */
+    height: 100%;
+    z-index: 1000; /* Siempre encima */
+    box-shadow: 5px 0 15px rgba(0,0,0,0.5); /* Sombra para separar */
+  }
+
+  /* Cuando el menú se cierra en móvil, que desaparezca totalmente */
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+    width: 280px; /* Mantiene ancho para animación */
+  }
+  
+  /* 2. CONTENIDO PRINCIPAL: Ocupa todo el ancho */
+  .main-content {
+    width: 100vw; /* Ancho completo */
+    margin-left: 0 !important; /* Ignora márgenes de escritorio */
+    padding-bottom: 80px; /* Espacio para scroll */
+  }
+
+  .content-header {
+    padding: 20px; /* Menos relleno */
+    padding-left: 70px; /* Espacio para el botón de menú */
+    flex-direction: column; /* Título arriba, botones abajo */
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .box-title-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .box-title {
+    font-size: 1.8rem; /* Título más pequeño */
+    word-break: break-word;
+  }
+
+  /* 3. PANELES Y GRID DE NOTICIAS */
+  .sources-panel {
+    padding: 20px;
+  }
+  
+  .input-group {
+    flex-direction: column; /* Input arriba, botón abajo */
+    align-items: stretch;
+  }
+  
+  .btn-add {
+    width: 100%; /* Botón ancho completo */
+    text-align: center;
+  }
+
+  .news-grid {
+    padding: 20px;
+    grid-template-columns: 1fr; /* Una sola columna */
+    gap: 25px;
+  }
+
+  /* 4. MODALES: Adaptables al ancho */
+  .modal-content, .modal-content.terminal, .auth-card {
+    width: 90% !important; /* 90% del ancho de pantalla */
+    max-width: none;
+    padding: 20px;
+  }
+
+  .terminal-textarea {
+    height: 200px; /* Menos altura en móvil */
+  }
+  
+  /* 5. AUTH / LOGIN */
+  .brand-header {
+    font-size: 2rem; /* Marca más pequeña */
+    margin-bottom: 20px;
+  }
+  
+  .auth-container {
+    padding: 15px;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* 6. BOTÓN TOGGLE (MENÚ) */
+  .toggle-btn {
+    top: 15px;
+    left: 15px;
+    width: 40px;
+    height: 40px;
+  }
+  
+  /* Ajuste crítico: Cuando el menú abre, el botón se mueve menos o se queda fijo */
+  .toggle-btn.open {
+    left: 230px; /* Sigue al sidebar */
+  }
+}
