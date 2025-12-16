@@ -4,6 +4,7 @@ import asyncio
 import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from typing import List
 import feedparser
@@ -33,6 +34,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 class SolicitudNoticias(BaseModel):
     urls: List[str]
@@ -61,20 +63,44 @@ def limpiar_texto(texto_sucio):
         return " ".join(texto_limpio.split())
     except: return "Resumen no disponible."
 
+# --- CACHÉ EN MEMORIA (Simple para MVP) ---
+CACHE_NOTICIAS = {}
+TIEMPO_EXPIRACION_CACHE = 15 * 60  # 15 minutos
+
 async def detectar_feed_rss(client_http, url_usuario):
     url_limpia = url_usuario.strip().rstrip('/')
     posibles = [url_limpia, f"{url_limpia}/feed", f"{url_limpia}/rss", f"{url_limpia}/rss.xml"]
     
-    for opcion in posibles:
+    # Función auxiliar para probar una URL individualmente
+    async def probar_url(url):
         try:
-            resp = await client_http.get(opcion, timeout=5)
+            resp = await client_http.get(url, timeout=4.0) # Timeout reducido
             if resp.status_code == 200:
                 feed = feedparser.parse(resp.content)
-                if feed.entries: return opcion
-        except: continue
+                if feed.entries: return url
+        except: 
+            return None
+        return None
+
+    # Ejecutar todas las pruebas en paralelo
+    tareas = [probar_url(opcion) for opcion in posibles]
+    resultados = await asyncio.gather(*tareas)
+    
+    # Retornar la primera que haya funcionado
+    for res in resultados:
+        if res: return res
     return None
 
 async def procesar_url(client_http, url):
+    import time # Importar aquí o arriba, lo pondremos aquí por seguridad en este scope si no está arriba
+    
+    # 1. CHECK CACHE
+    if url in CACHE_NOTICIAS:
+        timestamp, data = CACHE_NOTICIAS[url]
+        if time.time() - timestamp < TIEMPO_EXPIRACION_CACHE:
+            # print(f"⚡ HIT CACHE: {url}") # Opcional: log de debug
+            return data, None
+
     try:
         url_feed = await detectar_feed_rss(client_http, url)
         if not url_feed: url_feed = url 
@@ -86,7 +112,7 @@ async def procesar_url(client_http, url):
         if not feed.entries: return None, url
             
         noticias_encontradas = []
-        for entrada in feed.entries[:1]: 
+        for entrada in feed.entries[:3]: # Aumentamos a 3 para traer más variedad si se desea, o mantener en 1
             resumen_raw = ""
             if 'summary' in entrada: resumen_raw = entrada.summary
             elif 'description' in entrada: resumen_raw = entrada.description
@@ -105,6 +131,10 @@ async def procesar_url(client_http, url):
             }
             noticias_encontradas.append(noticia)
             
+        # 2. GUARDAR EN CACHE
+        if noticias_encontradas:
+            CACHE_NOTICIAS[url] = (time.time(), noticias_encontradas)
+
         return noticias_encontradas, None
 
     except Exception as e:
