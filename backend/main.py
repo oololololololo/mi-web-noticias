@@ -1,6 +1,7 @@
 import os
 import html
-import requests
+import asyncio
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,11 +10,19 @@ import feedparser
 from openai import OpenAI
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+import re
+from supabase import create_client, Client
+import json
 
-# Intentar cargar claves (si falla no explota, pero no habrá IA)
+# Intentar cargar claves
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else None
+
+# Configuración Supabase (Hardcoded por ahora para MVP)
+SUPABASE_URL = "https://efrlmhitlzqyvbzlmhuy.supabase.co"
+SUPABASE_KEY = "sb_publishable_SABVvIqjwAqIZg-3tMoQ7w_WyMSK0VQ" 
+supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI()
 
@@ -33,7 +42,11 @@ class SolicitudPost(BaseModel):
     resumen: str
     fuente: str
 
-# --- EL DISFRAZ DE NAVEGADOR ---
+class SolicitudRecomendacion(BaseModel):
+    tema: str
+    urls_existentes: List[str] = []
+
+# --- HEADER NAVEGADOR ---
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
@@ -48,95 +61,165 @@ def limpiar_texto(texto_sucio):
         return " ".join(texto_limpio.split())
     except: return "Resumen no disponible."
 
-def detectar_feed_rss(url_usuario):
+async def detectar_feed_rss(client_http, url_usuario):
     url_limpia = url_usuario.strip().rstrip('/')
     posibles = [url_limpia, f"{url_limpia}/feed", f"{url_limpia}/rss", f"{url_limpia}/rss.xml"]
     
     for opcion in posibles:
         try:
-            # DESCARGAMOS USANDO EL DISFRAZ
-            resp = requests.get(opcion, headers=HEADERS, timeout=5)
+            resp = await client_http.get(opcion, timeout=5)
             if resp.status_code == 200:
                 feed = feedparser.parse(resp.content)
                 if feed.entries: return opcion
         except: continue
     return None
 
+async def procesar_url(client_http, url):
+    try:
+        url_feed = await detectar_feed_rss(client_http, url)
+        if not url_feed: url_feed = url 
+        
+        response = await client_http.get(url_feed, timeout=10)
+        response.raise_for_status()
+        
+        feed = feedparser.parse(response.content)
+        if not feed.entries: return None, url
+            
+        noticias_encontradas = []
+        for entrada in feed.entries[:1]: 
+            resumen_raw = ""
+            if 'summary' in entrada: resumen_raw = entrada.summary
+            elif 'description' in entrada: resumen_raw = entrada.description
+            elif 'content' in entrada: resumen_raw = entrada.content[0].value
+            
+            resumen_limpio = limpiar_texto(resumen_raw)
+            if "{" in resumen_limpio or "window." in resumen_limpio:
+                resumen_limpio = "Haz clic en LEER para ver el artículo."
+
+            noticia = {
+                "titulo": entrada.title,
+                "link": entrada.link,
+                "resumen": resumen_limpio[:350] + "...", 
+                "fuente": feed.feed.title if 'title' in feed.feed else "Fuente Web",
+                "url_origen": url
+            }
+            noticias_encontradas.append(noticia)
+            
+        return noticias_encontradas, None
+
+    except Exception as e:
+        print(f"Error procesando {url}: {e}")
+        return None, url
+
 @app.get("/")
 def leer_raiz():
-    return {"mensaje": "API con User-Agent activa 🕵️"}
+    return {"mensaje": "API V2 Async activa ⚡"}
 
 @app.post("/obtener-noticias")
-def obtener_noticias_personalizadas(solicitud: SolicitudNoticias):
+async def obtener_noticias_personalizadas(solicitud: SolicitudNoticias):
     todas_las_noticias = []
     errores = []
-    
-    print(f"Procesando {len(solicitud.urls)} fuentes...") 
-    
-    for url in solicitud.urls:
-        # 1. Detectar URL real
-        url_feed = detectar_feed_rss(url)
-        
-        if not url_feed:
-            # Último intento: probar con la URL original directa
-            url_feed = url 
-        
-        try:
-            # 2. DESCARGAR CONTENIDO COMO SI FUÉRAMOS CHROME
-            response = requests.get(url_feed, headers=HEADERS, timeout=10)
-            response.raise_for_status() # Lanza error si la web da 403/404
-            
-            # 3. Leer el contenido descargado
-            feed = feedparser.parse(response.content)
-            
-            if not feed.entries:
-                errores.append(url)
-                continue
-                
-            for entrada in feed.entries[:1]: 
-                resumen_raw = ""
-                if 'summary' in entrada: resumen_raw = entrada.summary
-                elif 'description' in entrada: resumen_raw = entrada.description
-                elif 'content' in entrada: resumen_raw = entrada.content[0].value
-                
-                resumen_limpio = limpiar_texto(resumen_raw)
-                
-                # Parche visual
-                if "{" in resumen_limpio or "window." in resumen_limpio:
-                    resumen_limpio = "Haz clic en LEER para ver el artículo."
+    print(f"Procesando {len(solicitud.urls)} fuentes en PARALELO...") 
 
-                noticia = {
-                    "titulo": entrada.title,
-                    "link": entrada.link,
-                    "resumen": resumen_limpio[:350] + "...", 
-                    "fuente": feed.feed.title if 'title' in feed.feed else "Fuente Web",
-                    "url_origen": url # <--- ESTA ES LA CLAVE PARA EL COLOR
-                }
-                todas_las_noticias.append(noticia)
-                
-        except Exception as e:
-            print(f"Bloqueo o error en {url}: {e}")
-            errores.append(url)
-            continue
-            
-    return {
-        "noticias": todas_las_noticias,
-        "fallos": errores
-    }
+    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True) as client_http:
+        tareas = [procesar_url(client_http, url) for url in solicitud.urls]
+        resultados = await asyncio.gather(*tareas)
+        
+        for noticias, error in resultados:
+            if error: errores.append(error)
+            if noticias: todas_las_noticias.extend(noticias)
+
+    return {"noticias": todas_las_noticias, "fallos": errores}
 
 @app.post("/generar-post")
 def generar_post_ia(solicitud: SolicitudPost):
-    if not client:
-        return {"contenido": "Error: API Key no configurada. Revisa tu archivo .env"}
-        
+    if not client: return {"contenido": "Error: API Key no configurada"}
     try:
         completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Eres un experto en redes sociales."},
+                {"role": "system", "content": "Eres un experto en redes social."},
                 {"role": "user", "content": f"Crea un post de LinkedIn (sin emojis) para: {solicitud.titulo}"}
             ]
         )
         return {"contenido": completion.choices[0].message.content}
     except Exception as e:
         return {"contenido": f"Error OpenAI: {str(e)}"}
+
+@app.post("/recomendar-fuentes")
+async def recomendar_fuentes_ia(solicitud: SolicitudRecomendacion):
+    tema_normalizado = solicitud.tema.lower().strip()
+    urls_usuario = set(solicitud.urls_existentes)
+    
+    print(f"Buscando: '{tema_normalizado}' (Usuario tiene {len(urls_usuario)} fuentes)")
+
+    resultados_cache = []
+    
+    # 1. ⚡ CHECK CACHÉ SUPABASE
+    try:
+        data = supabase_client.table("search_cache").select("results").eq("query", tema_normalizado).execute()
+        if data.data and len(data.data) > 0:
+            resultados_cache = data.data[0]['results']
+            print(f"✅ Cache tiene {len(resultados_cache)} fuentes")
+    except Exception as e:
+        print(f"⚠️ Error caché: {e}")
+
+    # 2. FILTRAR LO QUE EL USUARIO YA TIENE
+    sugerencias_utiles = [f for f in resultados_cache if f['url'] not in urls_usuario]
+    
+    # SI HAY SUFICIENTES (>2), RETORNAMOS RÁPIDO Y BARATO
+    if len(sugerencias_utiles) >= 2:
+        print(f"🚀 Retornando {len(sugerencias_utiles)} fuentes del caché (útiles)")
+        return {"fuentes": sugerencias_utiles}
+
+    # 3. 🤖 GENERAR NUEVAS CON IA
+    print("🤖 Caché insuficiente. Consultando a GPT...")
+    
+    if not client: return {"error": "Sin API Key"}
+    
+    # Ignorar las del usuario y las del caché (para no repetir)
+    lista_ignorar = list(urls_usuario)[:20] + [f['url'] for f in resultados_cache]
+    str_ignorar = ", ".join(lista_ignorar)
+    
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un experto en RSS."},
+                {"role": "user", "content": f"Necesito 5 feeds RSS VERIFICADOS sobre: {solicitud.tema}. \nIMPORTANTE: NO incluyas: {str_ignorar}. \nDame URLs diferentes. Solo las URLs."}
+            ]
+        )
+        contenido = completion.choices[0].message.content
+        posibles_urls = re.findall(r'https?://[^\s,]+', contenido)
+        posibles_urls = [u.strip('",.') for u in posibles_urls]
+        
+    except Exception as e:
+        return {"error": f"Error IA: {str(e)}"}
+
+    # 4. 🛡️ VALIDAR URLS NUEVAS
+    feeds_nuevos = []
+    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, verify=False) as client_http:
+        tareas = [detectar_feed_rss(client_http, url) for url in posibles_urls]
+        resultados = await asyncio.gather(*tareas, return_exceptions=True)
+        
+        for i, res in enumerate(resultados):
+            if isinstance(res, Exception): continue
+            if res and res not in urls_usuario: 
+                feeds_nuevos.append({"url": res, "titulo": posibles_urls[i]})
+
+    # 5. 💾 MERGE Y ACTUALIZAR CACHÉ
+    urls_en_cache = {f['url'] for f in resultados_cache}
+    cache_final = resultados_cache + [f for f in feeds_nuevos if f['url'] not in urls_en_cache]
+    
+    if feeds_nuevos:
+        try:
+            supabase_client.table("search_cache").upsert({
+                "query": tema_normalizado,
+                "results": cache_final
+            }, on_conflict="query").execute()
+            print(f"💾 Caché actualizado con {len(feeds_nuevos)} fuentes nuevas")
+        except Exception as e:
+            print(f"⚠️ Error actualizando DB: {e}")
+
+    finales = [f for f in cache_final if f['url'] not in urls_usuario]
+    return {"fuentes": finales}
