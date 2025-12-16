@@ -12,59 +12,65 @@ export default function UsernameForm({ session, onNombreGuardado }) {
     setLoading(true)
 
     // Guardamos el nombre en la tabla 'profiles'
-    // Usamos 'upsert' para crear la fila si no existe o actualizarla si ya existe
     const { error } = await supabase
       .from('profiles')
-      .upsert({ 
-        id: session.user.id, 
+      .upsert({
+        id: session.user.id,
         email: session.user.email,
-        username: nombre 
+        username: nombre
       })
 
     if (error) {
       setErrorMsg('Error al guardar: ' + error.message)
       setLoading(false)
     } else {
-      // Avisamos a App.jsx que ya terminamos
-      onNombreGuardado(nombre) 
+      onNombreGuardado(nombre)
     }
   }
 
   return (
-    <div className="container modo-carga">
-      <div className="config-panel" style={{maxWidth: '500px'}}>
-        <h1 style={{fontSize: '2rem', marginBottom: '10px'}}>CASI LISTOS...</h1>
-        <p>¿Cómo te gustaría que te llamemos?</p>
+    <div className="auth-container">
+      <div className="auth-content">
+        <h1 className="brand-header">
+          NEWS<span style={{ color: '#666' }}>AGG</span>.
+        </h1>
 
-        <form onSubmit={handleSubmit} style={{marginTop: '30px'}}>
-          <label style={{display:'block', textAlign:'left', fontSize:'0.75rem', fontWeight:'bold', marginBottom:'5px'}}>NOMBRE DE USUARIO</label>
-          <input 
-            type="text" 
-            placeholder="Ej: Tobias Tech"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            required
-            autoFocus
-            style={{ 
-              width:'100%', 
-              padding: '15px', 
-              border: '2px solid black', 
-              boxSizing: 'border-box',
-              fontSize: '1.2rem',
-              marginBottom: '20px'
-            }} 
-          />
+        <div className="auth-card-modern">
+          <h2 className="auth-title-modern">¡Casi listos!</h2>
+          <p className="auth-subtitle-modern">¿Cómo te gustaría que te llamemos?</p>
 
-          {errorMsg && <div style={{color: 'red', marginBottom: '15px', fontWeight:'bold'}}>{errorMsg}</div>}
+          <form onSubmit={handleSubmit}>
+            <div className="input-field-wrapper">
+              <input
+                type="text"
+                className="modern-input"
+                placeholder="Nombre de Usuario"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                required
+                autoFocus
+              />
+            </div>
 
-          <button 
-            type="submit" 
-            className="btn-big-start" 
-            disabled={loading}
-          >
-            {loading ? 'GUARDANDO...' : 'COMENZAR'}
-          </button>
-        </form>
+            {errorMsg && (
+              <div className="auth-alert error">
+                {errorMsg}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn-modern-primary"
+              disabled={loading}
+            >
+              {loading ? 'GUARDANDO...' : 'COMENZAR'}
+            </button>
+          </form>
+        </div>
+
+        <div className="auth-footer-modern">
+          Configura tu perfil para empezar a curar contenido.
+        </div>
       </div>
     </div>
   )

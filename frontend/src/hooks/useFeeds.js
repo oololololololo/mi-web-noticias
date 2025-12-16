@@ -97,58 +97,55 @@ export function useFeeds(cajas, cajasVisibles) {
             return
         }
 
-        // 5. Buscar lo que falta
-        setCargandoNoticias(true) // Indicador de carga (puede ser discreto si ya hay noticias)
+        // 5. Buscar lo que falta (¡Ahora con carga progresiva!)
+        setCargandoNoticias(true)
 
-        const apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
-        axios.post(`${apiUrl}/obtener-noticias`, { urls: urlsFaltantes })
-            .then(res => {
-                // Actualizar caché con lo nuevo
-                const cacheActualizado = { ...cacheGlobal } // copia fresca
+        // Creamos una promesa por cada URL faltante para que se carguen independientemente
+        const promesas = urlsFaltantes.map(url => {
+            const apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
-                // Agrupar noticias nuevas por URL para guardarlas granularmente
-                const noticiasPorUrl = {}
-                if (res.data.noticias) {
-                    res.data.noticias.forEach(n => {
-                        if (!noticiasPorUrl[n.url_origen]) noticiasPorUrl[n.url_origen] = []
-                        noticiasPorUrl[n.url_origen].push(n)
-                    })
-                }
+            return axios.post(`${apiUrl}/obtener-noticias`, { urls: [url] })
+                .then(res => {
+                    const nuevasNoticias = res.data.noticias || []
+                    const fallos = res.data.fallos || []
 
-                // Guardar éxitos
-                urlsFaltantes.forEach(url => {
-                    // Si la URL devolvió noticias o al menos no falló explícitamente y no trajo nada (vacío)
-                    // Asumimos que "vacío" es un resultado válido para cachear también, para no reintentar infinitamente
-                    const misNoticias = noticiasPorUrl[url] || []
+                    // 1. Actualizar Cache Granular
+                    const cacheAhora = JSON.parse(localStorage.getItem(CACHE_KEY_GRANULAR) || '{}')
 
-                    // Si está en la lista de fallos del backend, NO guardamos caché (o guardamos estado error)
-                    if (res.data.fallos && res.data.fallos.includes(url)) {
+                    if (fallos.includes(url)) {
                         nuevosEstados[url] = 'error'
-                        // No actualizamos timestamp para reintentar luego? O cacheamos el error?
-                        // Mejor no cachear error para reintentar al refrescar.
                     } else {
                         nuevosEstados[url] = 'ok'
-                        cacheActualizado[url] = {
-                            timestamp: ahora,
-                            noticias: misNoticias
+                        // Guardamos aunque venga vacío para no reintentar
+                        cacheAhora[url] = {
+                            timestamp: Date.now(), // timestamp fresco
+                            noticias: nuevasNoticias
                         }
-                        // Añadir a la lista visual
-                        noticiasListas.push(...misNoticias)
                     }
+                    localStorage.setItem(CACHE_KEY_GRANULAR, JSON.stringify(cacheAhora))
+
+                    // 2. Actualizar ESTADO VISUAL (Progresivo)
+                    // Usamos functional update para no perder lo que haya llegado de otras peticiones
+                    if (nuevasNoticias.length > 0) {
+                        setNoticias(prev => {
+                            // Combinar y filtrar duplicados por si acaso (aunque url_origen debería separar)
+                            const combinadas = [...prev, ...nuevasNoticias]
+                            return procesarColores(combinadas, fuentes, cajas) // Re-aplicar colores
+                        })
+                    }
+
+                    setEstadoFuentes(prev => ({ ...prev, [url]: fallos.includes(url) ? 'error' : 'ok' }))
                 })
+                .catch(err => {
+                    console.error(`Error cargando ${url}`, err)
+                    setEstadoFuentes(prev => ({ ...prev, [url]: 'error' }))
+                })
+        })
 
-                // Persistir
-                localStorage.setItem(CACHE_KEY_GRANULAR, JSON.stringify(cacheActualizado))
-
-                // Actualizar UI final
-                setEstadoFuentes(prev => ({ ...prev, ...nuevosEstados }))
-                setNoticias(procesarColores(noticiasListas, fuentes, cajas))
-                setCargandoNoticias(false)
-            })
-            .catch(err => {
-                console.error(err)
-                setCargandoNoticias(false)
-            })
+        // Cuando TODAS terminen (éxito o error), apagamos el loading general
+        Promise.allSettled(promesas).then(() => {
+            setCargandoNoticias(false)
+        })
 
     }, [cajas, fuentes, procesarColores])
 

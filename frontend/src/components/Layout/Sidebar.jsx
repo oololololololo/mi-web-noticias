@@ -43,14 +43,34 @@ export function Sidebar({
                 </div>
 
                 {sidebarOpen && (
-                    <div className="user-profile-card">
-                        <div className="avatar-circle">
-                            {username ? username[0].toUpperCase() : 'U'}
+                    <div className="user-profile-card" style={{ justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="avatar-circle">
+                                {username ? username[0].toUpperCase() : 'U'}
+                            </div>
+                            <div className="user-info">
+                                <span className="username-display">{username}</span>
+                            </div>
                         </div>
-                        <div className="user-info">
-                            <span className="welcome-label">Bienvenido,</span>
-                            <span className="username-display">{username}</span>
-                        </div>
+                        <button
+                            onClick={() => supabase.auth.signOut()}
+                            title="Cerrar sesión"
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#555',
+                                cursor: 'pointer',
+                                padding: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: '0.2s'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.color = '#ff5555'}
+                            onMouseOut={(e) => e.currentTarget.style.color = '#555'}
+                        >
+                            <LogOut size={16} />
+                        </button>
                     </div>
                 )}
             </div>
@@ -61,55 +81,51 @@ export function Sidebar({
                 </span>
             </div>
 
-            <ul className="boxes-list">
-                {cajas.map(caja => {
-                    const isVisible = cajasVisibles.includes(caja.id)
-                    const isEditing = cajaEditando?.id === caja.id
-                    return (
-                        <li key={caja.id} className={`box-item ${isEditing ? 'editing' : ''}`} onClick={() => setCajaEditando(caja)}>
-                            <div className="box-left">
-                                <div className="color-indicator" style={{ background: caja.color, boxShadow: isVisible ? `0 0 10px ${caja.color}` : 'none' }}></div>
-                                {sidebarOpen && <span className="box-name">{caja.name}</span>}
-                            </div>
-
-                            {sidebarOpen && (
-                                <div className="box-actions">
-                                    <button
-                                        className={`action-icon ${isVisible ? 'visible' : 'hidden'}`}
-                                        onClick={(e) => { e.stopPropagation(); toggleVisibilidad(caja.id); }}
-                                        title={isVisible ? "Ocultar" : "Mostrar"}
-                                    >
-                                        {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
-                                    </button>
-                                    <button
-                                        className="action-icon delete"
-                                        onClick={(e) => handleBorrar(e, caja.id)}
-                                        title="Eliminar"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+            {/* WRAPPER SCROLLABLE: Contiene la lista y el botón para que hagan scroll juntos */}
+            <div className="sidebar-scroll-area">
+                <ul className="boxes-list">
+                    {cajas.map(caja => {
+                        const isVisible = cajasVisibles.includes(caja.id)
+                        const isEditing = cajaEditando?.id === caja.id
+                        return (
+                            <li key={caja.id} className={`box-item ${isEditing ? 'editing' : ''}`} onClick={() => setCajaEditando(caja)}>
+                                <div className="box-left">
+                                    <div className="color-indicator" style={{ background: caja.color, boxShadow: isVisible ? `0 0 10px ${caja.color}` : 'none' }}></div>
+                                    {sidebarOpen && <span className="box-name">{caja.name}</span>}
                                 </div>
-                            )}
-                        </li>
-                    )
-                })}
-            </ul>
 
-            <div style={{ marginTop: 'auto', padding: '20px' }}>
-                <button className="btn-new-box full-width" onClick={() => setModalCrearOpen(true)}>
-                    {sidebarOpen ? (
-                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            <Plus size={16} /> NUEVA COLECCIÓN
-                        </span>
-                    ) : <Plus size={20} />}
-                </button>
-                {sidebarOpen && (
-                    <button onClick={() => supabase.auth.signOut()} className="btn-logout-text">
-                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            <LogOut size={14} /> CERRAR SESIÓN
-                        </span>
+                                {sidebarOpen && (
+                                    <div className="box-actions">
+                                        <button
+                                            className={`action-icon ${isVisible ? 'visible' : 'hidden'}`}
+                                            onClick={(e) => { e.stopPropagation(); toggleVisibilidad(caja.id); }}
+                                            title={isVisible ? "Ocultar" : "Mostrar"}
+                                        >
+                                            {isVisible ? <Eye size={16} /> : <EyeOff size={16} />}
+                                        </button>
+                                        <button
+                                            className="action-icon delete"
+                                            onClick={(e) => handleBorrar(e, caja.id)}
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                )}
+                            </li>
+                        )
+                    })}
+                </ul>
+
+                <div style={{ padding: '10px 15px' }}>
+                    <button className="btn-new-box full-width" onClick={() => setModalCrearOpen(true)}>
+                        {sidebarOpen ? (
+                            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                <Plus size={16} /> NUEVA COLECCIÓN
+                            </span>
+                        ) : <Plus size={20} />}
                     </button>
-                )}
+                </div>
             </div>
         </aside>
     )
