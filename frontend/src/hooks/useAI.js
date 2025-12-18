@@ -23,7 +23,8 @@ export function useAI(config) {
 
         console.log("Generando post con config:", payload) // Debug log
 
-        axios.post('http://127.0.0.1:8000/generar-post', payload)
+        const apiUrl = import.meta.env.VITE_BACKEND_URL || 'https://mi-ap-noticias.onrender.com'
+        axios.post(`${apiUrl}/generar-post`, payload)
             .then(res => {
                 setPostContent(res.data.contenido)
                 setMostrarModalPost(true)

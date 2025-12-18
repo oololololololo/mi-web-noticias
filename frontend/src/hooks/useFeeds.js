@@ -116,7 +116,7 @@ export function useFeeds(cajas, cajasVisibles) {
         setCargandoNoticias(true)
         setProcesandoUrls(prev => new Set([...prev, ...urlsFaltantes]))
 
-        const apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
+        const apiUrl = import.meta.env.VITE_BACKEND_URL || 'https://mi-ap-noticias.onrender.com'
 
         // Usamos fetch nativo para soportar streaming (Axios es más complejo para esto)
         fetch(`${apiUrl}/stream-noticias`, {
@@ -221,7 +221,7 @@ export function useFeeds(cajas, cajasVisibles) {
             // Le enviamos al backend lo que YA tenemos para que no nos recomiende repetidos
             const urlsActuales = fuentes.map(f => f.url)
 
-            const apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
+            const apiUrl = import.meta.env.VITE_BACKEND_URL || 'https://mi-ap-noticias.onrender.com'
             const res = await axios.post(`${apiUrl}/recomendar-fuentes`, {
                 tema,
                 urls_existentes: urlsActuales
