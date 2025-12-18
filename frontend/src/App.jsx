@@ -13,7 +13,9 @@ import { useAI } from './hooks/useAI'
 // Components
 import { Sidebar } from './components/Layout/Sidebar'
 import { NewsGrid } from './components/News/NewsGrid'
-import { ModalCaja, ModalPostEditor, ModalBuscador } from './components/Shared/Modals'
+import { ModalCaja, ModalPostEditor, ModalBuscador, ModalConfigIA } from './components/Shared/Modals'
+import { LoadingPill } from './components/Shared/LoadingPill'
+import { useAIConfig } from './hooks/useAIConfig'
 
 function App() {
   const { session, username, loadingInit, setUsername } = useAuth()
@@ -37,8 +39,11 @@ function App() {
     agregarFuente,
     borrarFuente,
     cargarNoticiasAPI,
-    recomendarFuentes // Nuevo
+    recomendarFuentes, // Nuevo
+    procesandoUrls
   } = useFeeds(cajas, cajasVisibles)
+
+  const { config, updateConfig } = useAIConfig()
 
   const {
     mostrarModalPost,
@@ -47,13 +52,14 @@ function App() {
     setPostContent,
     cargandoIA,
     generarPost
-  } = useAI()
+  } = useAI(config)
 
   // UI State local
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [modalCrearOpen, setModalCrearOpen] = useState(false)
   const [modalEditarOpen, setModalEditarOpen] = useState(false)
-  const [modalBuscadorOpen, setModalBuscadorOpen] = useState(false) // NUEVO
+  const [modalBuscadorOpen, setModalBuscadorOpen] = useState(false)
+  const [modalConfigOpen, setModalConfigOpen] = useState(false) // NUEVO
   const [inputUrl, setInputUrl] = useState('')
 
   // Handlers UI wrapper
@@ -111,6 +117,7 @@ function App() {
         content={postContent}
         setContent={setPostContent}
         onCopy={() => navigator.clipboard.writeText(postContent)}
+        onOpenConfig={() => setModalConfigOpen(true)} // NUEVO: Acceso directo a config desde el modal
       />
 
       <ModalBuscador
@@ -119,6 +126,15 @@ function App() {
         onBuscar={recomendarFuentes}
         onAgregar={handleAgregarFuente}
       />
+
+      <ModalConfigIA
+        isOpen={modalConfigOpen}
+        onClose={() => setModalConfigOpen(false)}
+        config={config}
+        updateConfig={updateConfig}
+      />
+
+      <LoadingPill urls={Array.from(procesandoUrls)} />
 
       {/* SIDEBAR */}
       <Sidebar
@@ -132,6 +148,7 @@ function App() {
         setModalCrearOpen={setModalCrearOpen}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
+        onOpenConfig={() => setModalConfigOpen(true)} // NUEVO
       />
 
       {/* CONTENIDO PRINCIPAL */}

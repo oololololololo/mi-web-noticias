@@ -14,6 +14,7 @@ export function useFeeds(cajas, cajasVisibles) {
     // pero no necesariamente que la pantalla esté vacía.
     const [cargandoNoticias, setCargandoNoticias] = useState(false)
     const [estadoFuentes, setEstadoFuentes] = useState({})
+    const [procesandoUrls, setProcesandoUrls] = useState(new Set())
 
     // Cargar fuentes iniciales
     useEffect(() => {
@@ -51,7 +52,10 @@ export function useFeeds(cajas, cajasVisibles) {
 
     // Lógica Central de Carga
     const cargarNoticiasAPI = useCallback((urlsObjetivo, forzarRecarga = false) => {
-        if (urlsObjetivo.length === 0) {
+        // 0. Deduplicar URLs de entrada para evitar peticiones redundantes
+        const urlsUnicas = [...new Set(urlsObjetivo)]
+
+        if (urlsUnicas.length === 0) {
             setNoticias([])
             return
         }
@@ -71,7 +75,7 @@ export function useFeeds(cajas, cajasVisibles) {
         const nuevosEstados = {}
 
         // 2. Clasificar URLs (Hit vs Miss)
-        urlsObjetivo.forEach(url => {
+        urlsUnicas.forEach(url => {
             let hit = false
             if (!forzarRecarga && cacheGlobal[url]) {
                 const entry = cacheGlobal[url]
@@ -86,9 +90,20 @@ export function useFeeds(cajas, cajasVisibles) {
             }
         })
 
+        // Helper para deduplicar noticias por Link
+        const deduplicarNoticias = (lista) => {
+            const vistos = new Set()
+            return lista.filter(n => {
+                if (vistos.has(n.link)) return false
+                vistos.add(n.link)
+                return true
+            })
+        }
+
         // 3. Renderizar INMEDIATAMENTE lo que tenemos en caché
         //    (Esto evita el parpadeo "tosco")
-        setNoticias(procesarColores(noticiasListas, fuentes, cajas))
+        const noticiasCacheSinDuplicados = deduplicarNoticias(noticiasListas)
+        setNoticias(procesarColores(noticiasCacheSinDuplicados, fuentes, cajas))
         setEstadoFuentes(prev => ({ ...prev, ...nuevosEstados }))
 
         // 4. Si no falta nada, terminamos.
@@ -97,54 +112,91 @@ export function useFeeds(cajas, cajasVisibles) {
             return
         }
 
-        // 5. Buscar lo que falta (¡Ahora con carga progresiva!)
+        // 5. Buscar lo que falta (STREAMING)
         setCargandoNoticias(true)
+        setProcesandoUrls(prev => new Set([...prev, ...urlsFaltantes]))
 
-        // Creamos una promesa por cada URL faltante para que se carguen independientemente
-        const promesas = urlsFaltantes.map(url => {
-            const apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
+        const apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
-            return axios.post(`${apiUrl}/obtener-noticias`, { urls: [url] })
-                .then(res => {
-                    const nuevasNoticias = res.data.noticias || []
-                    const fallos = res.data.fallos || []
+        // Usamos fetch nativo para soportar streaming (Axios es más complejo para esto)
+        fetch(`${apiUrl}/stream-noticias`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: urlsFaltantes })
+        }).then(async response => {
+            const reader = response.body.getReader()
+            const decoder = new TextDecoder()
+            let buffer = ''
 
-                    // 1. Actualizar Cache Granular
-                    const cacheAhora = JSON.parse(localStorage.getItem(CACHE_KEY_GRANULAR) || '{}')
+            try {
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
 
-                    if (fallos.includes(url)) {
-                        nuevosEstados[url] = 'error'
-                    } else {
-                        nuevosEstados[url] = 'ok'
-                        // Guardamos aunque venga vacío para no reintentar
-                        cacheAhora[url] = {
-                            timestamp: Date.now(), // timestamp fresco
-                            noticias: nuevasNoticias
+                    const chunk = decoder.decode(value, { stream: true })
+                    buffer += chunk
+
+                    // Procesar líneas completas (NDJSON)
+                    const lines = buffer.split('\n')
+                    buffer = lines.pop() // Guardar el fragmento incompleto para la siguiente
+
+                    for (const line of lines) {
+                        if (!line.trim()) continue
+                        try {
+                            const data = JSON.parse(line)
+                            const { url, status, noticias: nuevasNoticias = [] } = data
+
+                            // Actualizar Cache Granular
+                            const cacheAhora = JSON.parse(localStorage.getItem(CACHE_KEY_GRANULAR) || '{}')
+
+                            if (status === 'error') {
+                                nuevosEstados[url] = 'error'
+                            } else {
+                                nuevosEstados[url] = 'ok'
+                                cacheAhora[url] = {
+                                    timestamp: Date.now(),
+                                    noticias: nuevasNoticias
+                                }
+                            }
+                            localStorage.setItem(CACHE_KEY_GRANULAR, JSON.stringify(cacheAhora))
+
+                            // Actualizar UI progresivamente
+                            if (nuevasNoticias.length > 0) {
+                                setNoticias(prev => {
+                                    const combinadas = [...prev, ...nuevasNoticias]
+                                    const unicas = deduplicarNoticias(combinadas)
+                                    return procesarColores(unicas, fuentes, cajas)
+                                })
+                            }
+                            setEstadoFuentes(prev => ({ ...prev, [url]: status === 'error' ? 'error' : 'ok' }))
+
+                            // Quitar de "Procesando"
+                            setProcesandoUrls(prev => {
+                                const next = new Set(prev)
+                                next.delete(url)
+                                return next
+                            })
+
+                        } catch (e) {
+                            console.error("Error parseando chunk stream", e)
                         }
                     }
-                    localStorage.setItem(CACHE_KEY_GRANULAR, JSON.stringify(cacheAhora))
-
-                    // 2. Actualizar ESTADO VISUAL (Progresivo)
-                    // Usamos functional update para no perder lo que haya llegado de otras peticiones
-                    if (nuevasNoticias.length > 0) {
-                        setNoticias(prev => {
-                            // Combinar y filtrar duplicados por si acaso (aunque url_origen debería separar)
-                            const combinadas = [...prev, ...nuevasNoticias]
-                            return procesarColores(combinadas, fuentes, cajas) // Re-aplicar colores
-                        })
-                    }
-
-                    setEstadoFuentes(prev => ({ ...prev, [url]: fallos.includes(url) ? 'error' : 'ok' }))
+                }
+            } catch (err) {
+                console.error("Error en stream", err)
+            } finally {
+                setCargandoNoticias(false)
+                // Limpiar cualquier URL que haya quedado colgada (por si error de red)
+                setProcesandoUrls(prev => {
+                    const next = new Set(prev)
+                    urlsFaltantes.forEach(u => next.delete(u))
+                    return next
                 })
-                .catch(err => {
-                    console.error(`Error cargando ${url}`, err)
-                    setEstadoFuentes(prev => ({ ...prev, [url]: 'error' }))
-                })
-        })
-
-        // Cuando TODAS terminen (éxito o error), apagamos el loading general
-        Promise.allSettled(promesas).then(() => {
+            }
+        }).catch(err => {
+            console.error("Error iniciando fetch stream", err)
             setCargandoNoticias(false)
+            setProcesandoUrls(new Set())
         })
 
     }, [cajas, fuentes, procesarColores])
@@ -156,6 +208,7 @@ export function useFeeds(cajas, cajasVisibles) {
                 .filter(f => cajasVisibles.includes(f.box_id))
                 .map(f => f.url)
 
+            // cargarNoticiasAPI ya se encarga de deduplicar
             cargarNoticiasAPI(urlsActivas)
         } else {
             setNoticias([])
@@ -188,6 +241,7 @@ export function useFeeds(cajas, cajasVisibles) {
         agregarFuente,
         borrarFuente,
         cargarNoticiasAPI,
-        recomendarFuentes // Nuevo
+        recomendarFuentes, // Nuevo
+        procesandoUrls
     }
 }

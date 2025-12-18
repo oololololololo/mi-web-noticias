@@ -3,6 +3,7 @@ import html
 import asyncio
 import httpx
 from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
@@ -36,18 +37,6 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-class SolicitudNoticias(BaseModel):
-    urls: List[str]
-
-class SolicitudPost(BaseModel):
-    titulo: str
-    resumen: str
-    fuente: str
-
-class SolicitudRecomendacion(BaseModel):
-    tema: str
-    urls_existentes: List[str] = []
-
 # --- HEADER NAVEGADOR ---
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -65,19 +54,27 @@ def limpiar_texto(texto_sucio):
 
 # --- CACHÉ EN MEMORIA (Simple para MVP) ---
 CACHE_NOTICIAS = {}
+CACHE_FEED_URLS = {} # Cache para mapear url_usuario -> url_feed_real
 TIEMPO_EXPIRACION_CACHE = 15 * 60  # 15 minutos
 
 async def detectar_feed_rss(client_http, url_usuario):
+    # 1. Check cache de URLs conocidas
+    if url_usuario in CACHE_FEED_URLS:
+        return CACHE_FEED_URLS[url_usuario]
+
     url_limpia = url_usuario.strip().rstrip('/')
     posibles = [url_limpia, f"{url_limpia}/feed", f"{url_limpia}/rss", f"{url_limpia}/rss.xml"]
     
     # Función auxiliar para probar una URL individualmente
     async def probar_url(url):
         try:
-            resp = await client_http.get(url, timeout=4.0) # Timeout reducido
+            resp = await client_http.get(url, timeout=3.0) # Timeout reducido a 3s
             if resp.status_code == 200:
-                feed = feedparser.parse(resp.content)
-                if feed.entries: return url
+                try:
+                    feed = feedparser.parse(resp.content)
+                    if feed.entries: return url
+                except:
+                    pass
         except: 
             return None
         return None
@@ -86,33 +83,34 @@ async def detectar_feed_rss(client_http, url_usuario):
     tareas = [probar_url(opcion) for opcion in posibles]
     resultados = await asyncio.gather(*tareas)
     
-    # Retornar la primera que haya funcionado
+    # Retornar la primera que haya funcionado y guardar en cache
     for res in resultados:
-        if res: return res
+        if res: 
+            CACHE_FEED_URLS[url_usuario] = res
+            return res
     return None
 
 async def procesar_url(client_http, url):
-    import time # Importar aquí o arriba, lo pondremos aquí por seguridad en este scope si no está arriba
+    import time 
     
-    # 1. CHECK CACHE
+    # 1. CHECK CACHE NOTICIAS
     if url in CACHE_NOTICIAS:
         timestamp, data = CACHE_NOTICIAS[url]
         if time.time() - timestamp < TIEMPO_EXPIRACION_CACHE:
-            # print(f"⚡ HIT CACHE: {url}") # Opcional: log de debug
             return data, None
 
     try:
         url_feed = await detectar_feed_rss(client_http, url)
         if not url_feed: url_feed = url 
         
-        response = await client_http.get(url_feed, timeout=10)
+        response = await client_http.get(url_feed, timeout=6.0) # Timeout total reducido a 6s
         response.raise_for_status()
         
         feed = feedparser.parse(response.content)
         if not feed.entries: return None, url
             
         noticias_encontradas = []
-        for entrada in feed.entries[:3]: # Aumentamos a 3 para traer más variedad si se desea, o mantener en 1
+        for entrada in feed.entries[:3]: 
             resumen_raw = ""
             if 'summary' in entrada: resumen_raw = entrada.summary
             elif 'description' in entrada: resumen_raw = entrada.description
@@ -141,35 +139,85 @@ async def procesar_url(client_http, url):
         print(f"Error procesando {url}: {e}")
         return None, url
 
-@app.get("/")
-def leer_raiz():
-    return {"mensaje": "API V2 Async activa ⚡"}
+class SolicitudNoticias(BaseModel):
+    urls: List[str]
 
-@app.post("/obtener-noticias")
-async def obtener_noticias_personalizadas(solicitud: SolicitudNoticias):
-    todas_las_noticias = []
-    errores = []
-    print(f"Procesando {len(solicitud.urls)} fuentes en PARALELO...") 
+class SolicitudPost(BaseModel):
+    titulo: str
+    resumen: str
+    fuente: str
+    estilo: str = "Formal"
+    idioma: str = "Español"
+    longitud: str = "Medio"
 
-    async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True) as client_http:
-        tareas = [procesar_url(client_http, url) for url in solicitud.urls]
-        resultados = await asyncio.gather(*tareas)
-        
-        for noticias, error in resultados:
-            if error: errores.append(error)
-            if noticias: todas_las_noticias.extend(noticias)
+class SolicitudRecomendacion(BaseModel):
+    tema: str
+    urls_existentes: List[str] = []
 
-    return {"noticias": todas_las_noticias, "fallos": errores}
+@app.post("/stream-noticias")
+async def stream_noticias(solicitud: SolicitudNoticias):
+    async def generador_eventos():
+        semaforo = asyncio.Semaphore(5) # Máximo 5 fuentes simultáneas para no saturar
+
+        async def procesar_con_limite(client, url):
+            async with semaforo:
+                return await procesar_url(client, url)
+
+        async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, verify=False) as client_http:
+            # Crear tareas envueltas en el semáforo
+            futuros = [procesar_con_limite(client_http, url) for url in solicitud.urls]
+            
+            # Procesar conforme terminan
+            for futuro in asyncio.as_completed(futuros):
+                noticias, url_origen = await futuro
+                
+                if noticias:
+                    payload = {
+                        "url": url_origen,
+                        "status": "ok",
+                        "noticias": noticias
+                    }
+                else:
+                    payload = {
+                        "url": url_origen,
+                        "status": "error"
+                    }
+                
+                yield json.dumps(payload) + "\n"
+
+    return StreamingResponse(generador_eventos(), media_type="application/x-ndjson")
 
 @app.post("/generar-post")
 def generar_post_ia(solicitud: SolicitudPost):
     if not client: return {"contenido": "Error: API Key no configurada"}
+    
+    # Construir prompt personalizado
+    longitud_instruccion = ""
+    if solicitud.longitud == "Corto":
+        longitud_instruccion = "Maximo 30 palabras. Muy conciso."
+    elif solicitud.longitud == "Largo":
+        longitud_instruccion = "Minimo 150 palabras. Detallado y profundo."
+    else:
+        longitud_instruccion = "Entre 50 y 80 palabras. Equilibrado."
+
+    prompt_sys = f"Eres un experto en redes sociales. Escribe en {solicitud.idioma}."
+    prompt_user = (
+        f"Crea un post de LinkedIn con estilo '{solicitud.estilo}'.\n"
+        f"Restriccion de longitud: {longitud_instruccion}\n"
+        f"Basado en esta noticia: {solicitud.titulo}\n"
+        f"Resumen: {solicitud.resumen}\n"
+        f"Fuente: {solicitud.fuente}\n"
+        "REGLAS CRÍTICAS:\n"
+        "1. PROHIBIDO USAR EMOJIS. No uses ni uno solo.\n"
+        "2. Solo el texto del post, sin introducciones."
+    )
+
     try:
         completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Eres un experto en redes social."},
-                {"role": "user", "content": f"Crea un post de LinkedIn (sin emojis) para: {solicitud.titulo}"}
+                {"role": "system", "content": prompt_sys},
+                {"role": "user", "content": prompt_user}
             ]
         )
         return {"contenido": completion.choices[0].message.content}

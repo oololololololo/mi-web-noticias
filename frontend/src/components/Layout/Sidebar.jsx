@@ -1,6 +1,6 @@
 import React from 'react'
 import { supabase } from '../../supabaseClient'
-import { Eye, EyeOff, Trash2, Menu, X, Plus, LogOut } from 'lucide-react'
+import { Eye, EyeOff, Trash2, Menu, X, Plus, LogOut, Settings } from 'lucide-react'
 
 export function Sidebar({
     username,
@@ -12,7 +12,8 @@ export function Sidebar({
     borrarCaja,
     setModalCrearOpen,
     sidebarOpen,
-    setSidebarOpen
+    setSidebarOpen,
+    onOpenConfig // Nuevo
 }) {
 
     // Función wrapper para manejar el borrado con confirmación visual
@@ -52,25 +53,46 @@ export function Sidebar({
                                 <span className="username-display">{username}</span>
                             </div>
                         </div>
-                        <button
-                            onClick={() => supabase.auth.signOut()}
-                            title="Cerrar sesión"
-                            style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: '#555',
-                                cursor: 'pointer',
-                                padding: '8px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: '0.2s'
-                            }}
-                            onMouseOver={(e) => e.currentTarget.style.color = '#ff5555'}
-                            onMouseOut={(e) => e.currentTarget.style.color = '#555'}
-                        >
-                            <LogOut size={16} />
-                        </button>
+                        <div style={{ display: 'flex' }}>
+                            <button
+                                onClick={onOpenConfig}
+                                title="Configuración IA"
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#555',
+                                    cursor: 'pointer',
+                                    padding: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: '0.2s'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.color = '#ccc'}
+                                onMouseOut={(e) => e.currentTarget.style.color = '#555'}
+                            >
+                                <Settings size={16} />
+                            </button>
+                            <button
+                                onClick={() => supabase.auth.signOut()}
+                                title="Cerrar sesión"
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#555',
+                                    cursor: 'pointer',
+                                    padding: '8px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: '0.2s'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.color = '#ff5555'}
+                                onMouseOut={(e) => e.currentTarget.style.color = '#555'}
+                            >
+                                <LogOut size={16} />
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
