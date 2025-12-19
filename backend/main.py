@@ -21,10 +21,20 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=api_key) if api_key else None
 
-# Configuración Supabase (Hardcoded por ahora para MVP)
-SUPABASE_URL = "https://efrlmhitlzqyvbzlmhuy.supabase.co"
-SUPABASE_KEY = "sb_publishable_SABVvIqjwAqIZg-3tMoQ7w_WyMSK0VQ" 
-supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Configuración Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase_client: Client = None
+if SUPABASE_URL and SUPABASE_KEY:
+    try:
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        print(f"Error inicializando Supabase: {e}")
+else:
+    print("Advertencia: SUPABASE_URL o SUPABASE_KEY no configurados.")
+
 
 app = FastAPI()
 
@@ -234,13 +244,16 @@ async def recomendar_fuentes_ia(solicitud: SolicitudRecomendacion):
     resultados_cache = []
     
     # 1. ⚡ CHECK CACHÉ SUPABASE
-    try:
-        data = supabase_client.table("search_cache").select("results").eq("query", tema_normalizado).execute()
-        if data.data and len(data.data) > 0:
-            resultados_cache = data.data[0]['results']
-            print(f"✅ Cache tiene {len(resultados_cache)} fuentes")
-    except Exception as e:
-        print(f"⚠️ Error caché: {e}")
+    if supabase_client:
+        try:
+            data = supabase_client.table("search_cache").select("results").eq("query", tema_normalizado).execute()
+            if data.data and len(data.data) > 0:
+                resultados_cache = data.data[0]['results']
+                print(f"✅ Cache tiene {len(resultados_cache)} fuentes")
+        except Exception as e:
+            print(f"⚠️ Error caché: {e}")
+    else:
+        print("⚠️ Supabase no configurado: saltando check de caché")
 
     # 2. FILTRAR LO QUE EL USUARIO YA TIENE
     sugerencias_utiles = [f for f in resultados_cache if f['url'] not in urls_usuario]
@@ -289,7 +302,7 @@ async def recomendar_fuentes_ia(solicitud: SolicitudRecomendacion):
     urls_en_cache = {f['url'] for f in resultados_cache}
     cache_final = resultados_cache + [f for f in feeds_nuevos if f['url'] not in urls_en_cache]
     
-    if feeds_nuevos:
+    if feeds_nuevos and supabase_client:
         try:
             supabase_client.table("search_cache").upsert({
                 "query": tema_normalizado,
