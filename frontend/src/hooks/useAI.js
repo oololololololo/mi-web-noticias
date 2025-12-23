@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import axios from 'axios'
-export function useAI(config) {
+export function useAI(config, session) {
     const [mostrarModalPost, setMostrarModalPost] = useState(false)
     const [postContent, setPostContent] = useState('')
     const [cargandoIA, setCargandoIA] = useState(false)
@@ -9,6 +9,12 @@ export function useAI(config) {
     // La config viene "propagada" desde App.jsx que es quien tiene el estado "vivo".
 
     const generarPost = useCallback((noticia) => {
+        if (!session?.access_token) {
+            setPostContent("Error: No hay sesión activa.")
+            setMostrarModalPost(true)
+            return
+        }
+
         setCargandoIA(true)
 
         // Usamos la config que nos pasan o valores por defecto por seguridad
@@ -24,7 +30,12 @@ export function useAI(config) {
         console.log("Generando post con config:", payload) // Debug log
 
         const apiUrl = import.meta.env.VITE_BACKEND_URL || 'https://mi-ap-noticias.onrender.com'
-        axios.post(`${apiUrl}/generar-post`, payload)
+
+        axios.post(`${apiUrl}/generar-post`, payload, {
+            headers: {
+                Authorization: `Bearer ${session.access_token}`
+            }
+        })
             .then(res => {
                 setPostContent(res.data.contenido)
                 setMostrarModalPost(true)
@@ -33,8 +44,15 @@ export function useAI(config) {
             .catch((err) => {
                 console.error(err)
                 setCargandoIA(false)
+                if (err.response && err.response.status === 403) {
+                    setPostContent("🔒 FUNCIÓN PREMIUM\n\nEsta función es exclusiva para usuarios verificados.\n\nPara solicitar acceso, contacta al administrador:\ntobias.alguibay@gmail.com")
+                    setMostrarModalPost(true)
+                } else {
+                    setPostContent(`Error inesperado: ${err.message}`)
+                    setMostrarModalPost(true)
+                }
             })
-    }, [config])
+    }, [config, session])
 
     return {
         mostrarModalPost,

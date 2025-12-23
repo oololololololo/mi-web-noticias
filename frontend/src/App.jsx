@@ -41,7 +41,8 @@ function App() {
     cargarNoticiasAPI,
     recomendarFuentes, // Nuevo
     procesandoUrls
-  } = useFeeds(cajas, cajasVisibles)
+  } = useFeeds(cajas, cajasVisibles, session)
+
 
   const { config, updateConfig } = useAIConfig()
 
@@ -52,7 +53,8 @@ function App() {
     setPostContent,
     cargandoIA,
     generarPost
-  } = useAI(config)
+  } = useAI(config, session)
+
 
   // UI State local
   const [sidebarOpen, setSidebarOpen] = useState(true)

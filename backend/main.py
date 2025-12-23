@@ -164,6 +164,58 @@ class SolicitudRecomendacion(BaseModel):
     tema: str
     urls_existentes: List[str] = []
 
+# --- DEPENDENCIAS AUTH ---
+from fastapi import Header, HTTPException, Depends
+
+async def verify_premium_user(authorization: str = Header(None)):
+    print(f"DEBUG: Verificando usuario. Token recibido: {authorization is not None}")
+    
+    if not authorization:
+        print("DEBUG: No authorization header")
+        raise HTTPException(status_code=401, detail="Token no proporcionado")
+    
+    token = authorization.replace("Bearer ", "")
+    
+    # Si no hay cliente supabase, modo inseguro/dev? Mejor bloquear.
+    if not supabase_client:
+         print("DEBUG: supabase_client es None. Fallo configuración.")
+         if os.getenv("MODO_DEV_INSEGURO") == "true": # Backdoor temporal solo si se define explícitamente
+             print("DEBUG: Modo dev inseguro activado. BYPASS.")
+             return None
+             
+         raise HTTPException(status_code=500, detail="Error configuración servidor: Supabase no conectado")
+
+    try:
+        # Verificar token con Supabase
+        user_response = supabase_client.auth.get_user(token)
+        user = user_response.user
+        email = user.email if user else "No email"
+        print(f"DEBUG: Usuario autenticado: {email}")
+        
+        # Verificar metadata
+        # Asumimos que el admin pone { "is_premium": true } en user_metadata
+        is_premium = user.user_metadata.get('is_premium', False)
+        print(f"DEBUG: Status Premium: {is_premium}")
+        
+        if not is_premium:
+            # Hardcoded admin bypass para ti
+            if email == "tobias.alguibay@gmail.com":
+                print("DEBUG: Admin bypass concedido.")
+                return user
+                
+            print("DEBUG: Acceso denegado. No es premium ni admin.")
+            raise HTTPException(status_code=403, detail="Requiere suscripción Premium. Contacta al admin.")
+            
+        return user
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"Error auth debug: {e}")
+        # Si falla la verificación del token en sí (expirado, etc)
+        raise HTTPException(status_code=401, detail="Token inválido o expirado")
+
+
 @app.post("/stream-noticias")
 async def stream_noticias(solicitud: SolicitudNoticias):
     async def generador_eventos():
@@ -198,7 +250,8 @@ async def stream_noticias(solicitud: SolicitudNoticias):
     return StreamingResponse(generador_eventos(), media_type="application/x-ndjson")
 
 @app.post("/generar-post")
-def generar_post_ia(solicitud: SolicitudPost):
+def generar_post_ia(solicitud: SolicitudPost, user = Depends(verify_premium_user)):
+
     if not client: return {"contenido": "Error: API Key no configurada"}
     
     # Construir prompt personalizado
@@ -235,7 +288,8 @@ def generar_post_ia(solicitud: SolicitudPost):
         return {"contenido": f"Error OpenAI: {str(e)}"}
 
 @app.post("/recomendar-fuentes")
-async def recomendar_fuentes_ia(solicitud: SolicitudRecomendacion):
+async def recomendar_fuentes_ia(solicitud: SolicitudRecomendacion, user = Depends(verify_premium_user)):
+
     tema_normalizado = solicitud.tema.lower().strip()
     urls_usuario = set(solicitud.urls_existentes)
     

@@ -6,7 +6,8 @@ import { supabase } from '../supabaseClient'
 const TIEMPO_CACHE = 60 * 60 * 1000
 const CACHE_KEY_GRANULAR = 'noticias_url_cache_v2'
 
-export function useFeeds(cajas, cajasVisibles) {
+export function useFeeds(cajas, cajasVisibles, session) {
+
     const [fuentes, setFuentes] = useState([])
     const [noticias, setNoticias] = useState([])
 
@@ -225,13 +226,21 @@ export function useFeeds(cajas, cajasVisibles) {
             const res = await axios.post(`${apiUrl}/recomendar-fuentes`, {
                 tema,
                 urls_existentes: urlsActuales
+            }, {
+                headers: {
+                    Authorization: session?.access_token ? `Bearer ${session.access_token}` : ''
+                }
             })
             return res.data.fuentes || []
         } catch (e) {
             console.error(e)
+            if (e.response && e.response.status === 403) {
+                alert("🔒 FUNCIÓN PREMIUM\n\nContacta a tobias.alguibay@gmail.com para acceso.")
+            }
             return []
         }
-    }, [fuentes]) // Dependencia importante: fuentes
+    }, [fuentes, session]) // Dependencia importante: fuentes y session
+
 
     return {
         fuentes,
