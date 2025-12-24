@@ -198,10 +198,15 @@ async def verify_premium_user(authorization: str = Header(None)):
         print(f"DEBUG: Status Premium: {is_premium}")
         
         if not is_premium:
-            # Hardcoded admin bypass para ti
-            if email == "tobias.alguibay@gmail.com":
+            # Hardcoded admin bypass para ti (Case Insensitive)
+            if email.lower().strip() == "tobias.alguibay@gmail.com":
                 print("DEBUG: Admin bypass concedido.")
                 return user
+            
+            # Chequeo extra por si is_premium vino como string "true"
+            if str(is_premium).lower() == "true":
+                 print("DEBUG: Status Premium (string conversion): True")
+                 return user
                 
             print("DEBUG: Acceso denegado. No es premium ni admin.")
             raise HTTPException(status_code=403, detail="Requiere suscripción Premium. Contacta al admin.")
