@@ -1,0 +1,20 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "backend/main.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "backend/main.py"
+        }
+    ],
+    "env": {
+        "OPENAI_API_KEY": "@openai-api-key",
+        "SUPABASE_URL": "@supabase-url",
+        "SUPABASE_KEY": "@supabase-key"
+    }
+}
